@@ -72,11 +72,6 @@ def servir_frontend():
 
 # --- CÁLCULO AUTOMÁTICO DE SEMESTRE POR FECHAS O MANUAL ---
 def calcular_semestre_vigente(usuario: Usuario) -> dict:
-    """
-    Si el usuario configuró fechas de inicio y fin de su semestre, calcula si ya pasó
-    la fecha de finalización y suma automáticamente los semestres transcurridos.
-    Si falta fecha o hay error, usa el semestre manual como respaldo seguro.
-    """
     sem_base = usuario.semestre_base or 1
     if usuario.modo_semestre == "MANUAL" or not usuario.fecha_fin_semestre:
         return {
@@ -96,7 +91,6 @@ def calcular_semestre_vigente(usuario: Usuario) -> dict:
                 "explicacion": f"Cursando {sem_base}° semestre (Del {inicio_sem} al {fin_sem})."
             }
         else:
-            # Si ya terminó ese semestre, calcular cuántos semestres (periodos de 6 meses) han pasado
             dias_extra = (hoy - fin_sem).days
             semestres_adicionales = (dias_extra // 180) + 1
             nuevo_semestre = min(9, sem_base + semestres_adicionales)
@@ -139,38 +133,42 @@ def extraer_texto_de_archivo(nombre: str, contenido: bytes) -> str:
             from pypdf import PdfReader
             lector = PdfReader(io.BytesIO(contenido))
             paginas_texto = []
-            for idx, page in enumerate(lector.pages[:15]):
+            for page in lector.pages[:10]:
                 paginas_texto.append(page.extract_text() or "")
             texto_extraido += " ".join(paginas_texto)
         except Exception:
-            # Búsqueda de cadenas legibles dentro del binario PDF como fallback
-            texto_ crudo = contenido.decode("latin-1", errors="ignore")
-            palabras = re.findall(r"[A-Za-zÁÉÍÓÚáéíóúñÑ0-9_\-\.]{4,}", texto_crudo)
-            texto_extraido += " ".join(palabras[:1500])
+            try:
+                texto_crudo = contenido.decode("utf-8", errors="ignore")
+                palabras = re.findall(r"[A-Za-zÁÉÍÓÚáéíóúñÑ0-9_\-\.]{4,}", texto_crudo)
+                texto_extraido += " ".join(palabras[:1000])
+            except Exception:
+                pass
 
-    # 2. Inspeccionar el interior si es un archivo comprimido .ZIP
+    # 2. Inspeccionar el interior si es un archivo .ZIP
     elif ext == ".zip":
         try:
             with zipfile.ZipFile(io.BytesIO(contenido)) as z:
                 lista_interna = z.namelist()
-                texto_extraido += "Contiene archivos comprimidos: " + ", ".join(lista_interna[:80])
-                for item in lista_interna[:10]:
+                texto_extraido += "Contiene archivos comprimidos: " + ", ".join(lista_interna[:50])
+                for item in lista_interna[:8]:
                     if item.endswith((".py", ".kt", ".java", ".sql", ".html", ".js", ".md", ".txt", ".pl")):
-                        muestra = z.read(item).decode("utf-8", errors="ignore")[:1500]
+                        muestra = z.read(item).decode("utf-8", errors="ignore")[:1000]
                         texto_extraido += f"\nCódigo en {item}: {muestra}"
         except Exception:
             pass
 
-    # 3. Leer directamente si es código fuente o texto
+    # 3. Leer directamente si es código o texto
     elif ext in [".py", ".kt", ".java", ".sql", ".js", ".jsx", ".ts", ".html", ".css", ".pl", ".txt", ".md", ".json", ".csv"]:
-        texto_extraido += contenido.decode("utf-8", errors="ignore")[:8000]
+        try:
+            texto_extraido += contenido.decode("utf-8", errors="ignore")[:5000]
+        except Exception:
+            pass
 
     return texto_extraido
 
 def analizar_evidencia_con_ia(titulo: str, descripcion: str, materia_nombre: str, textos_archivos: List[str], url_externa: str = "") -> dict:
     corpus_completo = f"Materia: {materia_nombre}. Título: {titulo}. Descripción: {descripcion}. URL: {url_externa}. " + "\n".join(textos_archivos)
 
-    # 1. Si el usuario tiene configurada GEMINI_API_KEY en su entorno, usar Gemini 2.5 Flash
     api_key = os.getenv("GEMINI_API_KEY")
     if api_key:
         try:
@@ -195,7 +193,6 @@ def analizar_evidencia_con_ia(titulo: str, descripcion: str, materia_nombre: str
         except Exception as e:
             print("Fallback local activado:", e)
 
-    # 2. Motor de Inferencia Basado en Conocimiento Local (Analiza el texto real extraído del PDF/ZIP/Código)
     tecnologias_detectadas = []
     corpus_lower = corpus_completo.lower()
 
@@ -205,7 +202,6 @@ def analizar_evidencia_con_ia(titulo: str, descripcion: str, materia_nombre: str
                 tecnologias_detectadas.append(tech)
                 break
 
-    # Asociar también la competencia natural de la materia de la retícula
     if "base de datos" in materia_nombre.lower() or "sql" in materia_nombre.lower():
         if "SQL / Bases de Datos" not in tecnologias_detectadas:
             tecnologias_detectadas.append("SQL / Bases de Datos")
@@ -259,7 +255,7 @@ async def registrar_estudiante(
     correo: str = Form(...),
     password: str = Form(...),
     es_itics: bool = Form(True),
-    modo_semestre: str = Form("AUTOMATICO"), # AUTOMATICO o MANUAL
+    modo_semestre: str = Form("AUTOMATICO"),
     semestre_base: int = Form(1),
     fecha_inicio_semestre: Optional[str] = Form(None),
     fecha_fin_semestre: Optional[str] = Form(None),
@@ -424,7 +420,6 @@ async def subir_evidencia(
         with open(ruta_fisica, "wb") as f:
             f.write(contenido)
             
-        # Extraer el contenido interno del PDF / ZIP / Código para pasárselo a la IA
         texto_interno = extraer_texto_de_archivo(nombre_limpio, contenido)
         textos_para_ia.append(texto_interno)
 
@@ -447,7 +442,6 @@ async def subir_evidencia(
             "sha256": hash_sha256
         })
 
-    # Ejecutar la IA sobre los archivos subidos
     resultado_ia = analizar_evidencia_con_ia(
         titulo=titulo,
         descripcion=descripcion,
@@ -490,7 +484,7 @@ def leer_archivo_texto(archivo_id: int, db: Session = Depends(get_db)):
     with open(ruta_real, "r", encoding="utf-8", errors="replace") as f:
         return f.read()
 
-# --- 4. OBTENER EL PORTAFOLIO / CV GENERADO POR IA DEL ESTUDIANTE LOGUEADO ---
+# --- 4. OBTENER EL PORTAFOLIO / CV GENERADO POR IA ---
 @app.get("/api/portafolio/{estudiante_id}")
 def obtener_portafolio_curricular(estudiante_id: int, db: Session = Depends(get_db)):
     estudiante = db.query(Usuario).filter(Usuario.id == estudiante_id).first()
@@ -509,7 +503,6 @@ def obtener_portafolio_curricular(estudiante_id: int, db: Session = Depends(get_
     mapa_materias = {}
     stack_ia_global = set()
     total_archivos_subidos = 0
-    resumenes_ia = []
 
     for ev in evidencias:
         mat = ev.materia
@@ -517,8 +510,6 @@ def obtener_portafolio_curricular(estudiante_id: int, db: Session = Depends(get_
             for tag in ev.tags_ia_detectados.split(","):
                 if tag.strip():
                     stack_ia_global.add(tag.strip())
-        if ev.analisis_ia:
-            resumenes_ia.append(ev.analisis_ia)
 
         if mat.clave not in mapa_materias:
             mapa_materias[mat.clave] = {
@@ -575,8 +566,6 @@ def obtener_portafolio_curricular(estudiante_id: int, db: Session = Depends(get_
             "semestre_actual": info_sem["semestre_calculado"],
             "modo_semestre": info_sem["modo"],
             "explicacion_semestre": info_sem["explicacion"],
-            "fecha_inicio_semestre": estudiante.fecha_inicio_semestre,
-            "fecha_fin_semestre": estudiante.fecha_fin_semestre,
             "carrera": "Ingeniería en Tecnologías de la Información y Comunicaciones (ITIC-2010-225)" if estudiante.es_itics else "Ingeniería TecNM",
             "especialidad": "Análisis de Datos (ITIE-ADD-2025-01)",
             "perfil_ia": perfil_ia_consolidado
