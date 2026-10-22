@@ -27,12 +27,13 @@
       const [vistaActual, setVistaActual] = useState(usuarioActivo ? "portafolio" : "inicio");
       const [materias, setMaterias] = useState([]);
 
-      const [modoAuth, setModoAuth] = useState("registro");
+      // Estados de Registro e Inicio de Sesión
+      const [modoAuth, setModoAuth] = useState("registro"); // "registro" | "login" | "solicitar_codigo" | "restablecer_password"
       const [nombreReg, setNombreReg] = useState("");
       const [matriculaReg, setMatriculaReg] = useState("");
       const [correoReg, setCorreoReg] = useState("");
       const [passwordReg, setPasswordReg] = useState("");
-      const [palabraSecretaReg, setPalabraSecretaReg] = useState("");
+      const [codigoRecuperacionReg, setCodigoRecuperacionReg] = useState("");
       const [esIticsReg, setEsIticsReg] = useState(true);
       const [modoSemestreReg, setModoSemestreReg] = useState("AUTOMATICO");
       const [semestreManualReg, setSemestreManualReg] = useState(1);
@@ -41,6 +42,7 @@
       const [fotoReg, setFotoReg] = useState(null);
       const [errorAuth, setErrorAuth] = useState(null);
 
+      // Estados para Subir Evidencias
       const [materiaSeleccionada, setMateriaSeleccionada] = useState("");
       const [titulo, setTitulo] = useState("");
       const [descripcion, setDescripcion] = useState("");
@@ -49,6 +51,7 @@
       const [subiendo, setSubiendo] = useState(false);
       const [alerta, setAlerta] = useState(null);
 
+      // Estados del CV e Historial
       const [datosPortafolio, setDatosPortafolio] = useState(null);
       const [mostrarTodosLosSemestres, setMostrarTodosLosSemestres] = useState(true);
       const [semestreActivoHistorial, setSemestreActivoHistorial] = useState("TODOS");
@@ -69,19 +72,14 @@
 
           if (userObj) {
             const rPort = await fetch(`${API_BASE}/api/portafolio/${userObj.id}`);
-            if (rPort.ok) {
-              const dataPort = await rPort.json();
-              setDatosPortafolio(dataPort);
-            }
+            if (rPort.ok) setDatosPortafolio(await rPort.json());
           }
         } catch (err) {
           console.error("Error cargando datos:", err);
         }
       };
 
-      useEffect(() => {
-        cargarDatosUsuario();
-      }, [usuarioActivo]);
+      useEffect(() => { cargarDatosUsuario(); }, [usuarioActivo]);
 
       const manejarRegistro = async (e) => {
         e.preventDefault();
@@ -91,7 +89,6 @@
         fd.append("matricula", matriculaReg || "");
         fd.append("correo", correoReg || "");
         fd.append("password", passwordReg || "");
-        fd.append("palabra_recuperacion", palabraSecretaReg || "");
         fd.append("es_itics", esIticsReg);
         fd.append("modo_semestre", modoSemestreReg);
         fd.append("semestre_base", semestreManualReg);
@@ -140,22 +137,41 @@
         }
       };
 
-      const manejarRecuperacion = async (e) => {
+      const manejarSolicitarCodigo = async (e) => {
         e.preventDefault();
         setErrorAuth(null);
         const fd = new FormData();
-        fd.append("identificador", matriculaReg || "");
-        fd.append("palabra_secreta", palabraSecretaReg || "");
-        fd.append("nueva_password", passwordReg || "");
-
+        fd.append("correo_o_matricula", matriculaReg || "");
         try {
-          const res = await fetch(`${API_BASE}/api/auth/recuperar`, { method: "POST", body: fd });
+          const res = await fetch(`${API_BASE}/api/auth/solicitar-codigo`, { method: "POST", body: fd });
           const data = await res.json();
           if (res.ok) {
             setErrorAuth("✅ " + data.mensaje);
-            setTimeout(() => setModoAuth("login"), 3000);
+            setModoAuth("restablecer_password");
           } else {
-            setErrorAuth("❌ " + (data.detail || "La palabra secreta es incorrecta."));
+            setErrorAuth("❌ " + (data.detail || "Error al solicitar código."));
+          }
+        } catch (err) {
+          setErrorAuth("Error de conexión.");
+        }
+      };
+
+      const manejarRestablecerPassword = async (e) => {
+        e.preventDefault();
+        setErrorAuth(null);
+        const fd = new FormData();
+        fd.append("correo_o_matricula", matriculaReg || "");
+        fd.append("codigo", codigoRecuperacionReg || "");
+        fd.append("nueva_password", passwordReg || "");
+
+        try {
+          const res = await fetch(`${API_BASE}/api/auth/restablecer-password`, { method: "POST", body: fd });
+          const data = await res.json();
+          if (res.ok) {
+            setErrorAuth("✅ " + data.mensaje);
+            setTimeout(() => setModoAuth("login"), 4000);
+          } else {
+            setErrorAuth("❌ " + (data.detail || "El código es incorrecto o expiró."));
           }
         } catch (err) {
           setErrorAuth("Error de conexión.");
@@ -216,9 +232,7 @@
           try {
             const res = await fetch(`${API_BASE}/api/archivos/leer-texto/${arch.id}`);
             if (res.ok) setTextoCodigoVisor(await res.text());
-          } catch (err) {
-            console.error(err);
-          }
+          } catch (err) {}
         }
       };
 
@@ -231,7 +245,6 @@
             }
           });
         }
-        
         return [1, 2, 3, 4, 5, 6, 7, 8, 9].map((numSem) => {
           const materiasDelSemestre = (materias || []).filter((m) => m.semestre === numSem);
           const materiasConHistorial = materiasDelSemestre.map((m) => ({
@@ -317,21 +330,20 @@
                   <form onSubmit={manejarRegistro} className="space-y-4">
                     <h2 className="text-xl font-extrabold text-white">Crear Cuenta de Estudiante</h2>
                     <p className="text-xs text-slate-400 mb-4">Ingresa tus datos personales para habilitar tu espacio en la plataforma. Tu CV se generará más adelante cuando subas evidencias.</p>
-
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div><label className="block text-xs font-bold text-blue-400 mb-1">Nombre Completo *</label><input required type="text" value={nombreReg} onChange={e => setNombreReg(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" /></div>
-                      <div><label className="block text-xs font-bold text-blue-400 mb-1">Número de Control *</label><input required type="text" value={matriculaReg} onChange={e => setMatriculaReg(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" /></div>
+                      <div><label className="block text-xs font-bold text-blue-400 mb-1">Nombre Completo *</label><input required type="text" value={nombreReg} onChange={e => setNombreReg(e.target.value)} placeholder="Ej. Gretel Tamara Ceja Tostado" className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" /></div>
+                      <div><label className="block text-xs font-bold text-blue-400 mb-1">Número de Control *</label><input required type="text" value={matriculaReg} onChange={e => setMatriculaReg(e.target.value)} placeholder="Ej. 23221036" className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" /></div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div><label className="block text-xs font-bold text-emerald-400 mb-1">Correo Personal *</label><input required type="email" value={correoReg} onChange={e => setCorreoReg(e.target.value)} placeholder="tu_correo@gmail.com" className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" /></div>
-                      <div><label className="block text-xs font-bold text-blue-400 mb-1">Crear Contraseña *</label><input required type="password" value={passwordReg} onChange={e => setPasswordReg(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" /></div>
+                      <div><label className="block text-xs font-bold text-emerald-400 mb-1">Correo Personal (Válido) *</label><input required type="email" value={correoReg} onChange={e => setCorreoReg(e.target.value)} placeholder="tu_correo@gmail.com" className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" /></div>
+                      <div><label className="block text-xs font-bold text-blue-400 mb-1">Crear Contraseña *</label><input required type="password" value={passwordReg} onChange={e => setPasswordReg(e.target.value)} placeholder="Crea una contraseña segura" className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" /></div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div><label className="block text-xs font-bold text-amber-400 mb-1">Pregunta de Seguridad (Palabra Secreta) *</label><input required type="password" value={palabraSecretaReg} onChange={e => setPalabraSecretaReg(e.target.value)} placeholder="Ej. Nombre de tu primera mascota" className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" /><p className="text-[10px] text-slate-400 mt-1">Requerida obligatoriamente si necesitas recuperar el acceso a tu cuenta.</p></div>
+                      <div><label className="block text-xs font-bold text-blue-400 mb-1">Carrera *</label><select value={esIticsReg} onChange={e => setEsIticsReg(e.target.value === "true")} className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white"><option value="true">Ingeniería en TICs (ITIC-2010-225)</option></select></div>
                       <div><label className="block text-xs font-bold text-emerald-400 mb-1">Foto de Perfil (Opcional)</label><input type="file" accept="image/*" onChange={e => setFotoReg(e.target.files[0])} className="w-full text-xs text-slate-300 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-blue-600 file:text-white cursor-pointer" /></div>
                     </div>
                     <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
-                      <label className="block text-xs font-extrabold uppercase text-blue-400">Control de Semestre Actual</label>
+                      <label className="block text-xs font-extrabold uppercase text-amber-400">Control de Semestre Actual</label>
                       <div className="flex gap-3 text-xs">
                         <label><input type="radio" checked={modoSemestreReg === "AUTOMATICO"} onChange={() => setModoSemestreReg("AUTOMATICO")} /> Automático por Fechas</label>
                         <label><input type="radio" checked={modoSemestreReg === "MANUAL"} onChange={() => setModoSemestreReg("MANUAL")} /> Manual</label>
@@ -355,41 +367,44 @@
                     <h2 className="text-xl font-extrabold text-white">Iniciar Sesión</h2>
                     <div><label className="block text-xs font-bold text-blue-400 mb-1">No. Control o Correo Personal *</label><input required type="text" value={matriculaReg} onChange={e => setMatriculaReg(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" /></div>
                     <div><label className="block text-xs font-bold text-blue-400 mb-1">Contraseña *</label><input required type="password" value={passwordReg} onChange={e => setPasswordReg(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" /></div>
-                    <div className="text-right"><button type="button" onClick={() => { setModoAuth("recuperar"); setErrorAuth(null); setPasswordReg(""); }} className="text-xs text-emerald-400 font-bold hover:underline">¿Olvidaste tu contraseña?</button></div>
-                    <button type="submit" className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-extrabold text-white text-sm">Entrar a mi Cuenta</button>
+                    <div className="text-right"><button type="button" onClick={() => { setModoAuth("solicitar_codigo"); setErrorAuth(null); setPasswordReg(""); }} className="text-xs text-emerald-400 font-bold hover:underline">¿Olvidaste tu contraseña?</button></div>
+                    <button type="submit" className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-extrabold text-white text-sm">Entrar a Mi Cuenta</button>
                   </form>
                 )}
 
-                {modoAuth === "recuperar" && (
-                  <form onSubmit={manejarRecuperacion} className="space-y-4">
-                    <h2 className="text-xl font-extrabold text-white">Recuperación de Cuenta</h2>
-                    <p className="text-xs text-slate-400">Verifica tu identidad ingresando la palabra secreta que configuraste al crear tu cuenta.</p>
+                {modoAuth === "solicitar_codigo" && (
+                  <form onSubmit={manejarSolicitarCodigo} className="space-y-4">
+                    <h2 className="text-xl font-extrabold text-white">Recuperación de Cuenta (Paso 1)</h2>
+                    <p className="text-xs text-slate-400">Ingresa tu número de control o correo personal registrado. Te enviaremos un código de verificación de 6 dígitos para confirmar tu identidad.</p>
                     <div><label className="block text-xs font-bold text-blue-400 mb-1">No. de Control o Correo *</label><input required type="text" value={matriculaReg} onChange={e => setMatriculaReg(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" /></div>
-                    <div><label className="block text-xs font-bold text-amber-400 mb-1">Palabra Secreta *</label><input required type="password" value={palabraSecretaReg} onChange={e => setPalabraSecretaReg(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" /></div>
+                    <button type="submit" className="w-full py-3.5 rounded-xl bg-amber-600 hover:bg-amber-500 font-extrabold text-white text-sm">Enviar Código de Verificación</button>
+                    <div className="text-center mt-2"><button type="button" onClick={() => setModoAuth("login")} className="text-xs text-slate-400 hover:text-white">Volver al Inicio de Sesión</button></div>
+                  </form>
+                )}
+
+                {modoAuth === "restablecer_password" && (
+                  <form onSubmit={manejarRestablecerPassword} className="space-y-4">
+                    <h2 className="text-xl font-extrabold text-white">Recuperación de Cuenta (Paso 2)</h2>
+                    <p className="text-xs text-slate-400">Revisa tu correo o revisa el código de prueba enviado. Escríbelo junto con tu nueva contraseña.</p>
+                    <div><label className="block text-xs font-bold text-amber-400 mb-1">Código de Verificación (6 dígitos) *</label><input required type="text" value={codigoRecuperacionReg} onChange={e => setCodigoRecuperacionReg(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white text-center font-mono tracking-widest text-lg" placeholder="000000" maxLength="6" /></div>
                     <div className="pt-2 border-t border-slate-800"><label className="block text-xs font-bold text-emerald-400 mb-1">Escribe tu Nueva Contraseña *</label><input required type="password" value={passwordReg} onChange={e => setPasswordReg(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" /></div>
-                    <button type="submit" className="w-full py-3.5 rounded-xl bg-amber-600 hover:bg-amber-500 font-extrabold text-white text-sm">Restablecer Contraseña y Recuperar Cuenta</button>
-                    <div className="text-center mt-2"><button type="button" onClick={() => { setModoAuth("login"); setErrorAuth(null); }} className="text-xs text-slate-400 hover:text-white">Volver al Inicio de Sesión</button></div>
+                    <button type="submit" className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-extrabold text-white text-sm">Guardar Nueva Contraseña</button>
+                    <div className="text-center mt-2"><button type="button" onClick={() => setModoAuth("login")} className="text-xs text-slate-400 hover:text-white">Cancelar y volver</button></div>
                   </form>
                 )}
               </div>
             </section>
           )}
 
-          {/* VISTAS RETICULA, SUBIR Y PORTAFOLIO */}
           {vistaActual === "reticula" && (
             <section className="max-w-[1600px] mx-auto px-4 py-6">
-              <div className="mb-4 bg-slate-900 p-4 rounded-xl border border-slate-800">
-                <h2 className="text-lg font-extrabold text-white uppercase">Retícula Exclusiva de ITICs (ITIC-2010-225) - ITP</h2>
-                <p className="text-xs text-slate-400">Selecciona cualquier materia para subir evidencias.</p>
-              </div>
+              <div className="mb-4 bg-slate-900 p-4 rounded-xl border border-slate-800"><h2 className="text-lg font-extrabold text-white uppercase">Retícula Exclusiva de ITICs (ITIC-2010-225) - ITP</h2></div>
               <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-9 gap-2.5 overflow-x-auto pb-6">
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((sem) => (
-                  <div key={sem} className="flex flex-col gap-2.5 min-w-[155px]">
-                    <div className="bg-blue-950 border border-blue-700 text-blue-200 text-center py-2 rounded-lg font-extrabold text-xs uppercase">{sem}° Semestre</div>
+                  <div key={sem} className="flex flex-col gap-2.5 min-w-[155px]"><div className="bg-blue-950 border border-blue-700 text-blue-200 text-center py-2 rounded-lg font-extrabold text-xs uppercase">{sem}° Semestre</div>
                     {materias.filter((m) => m.semestre === sem).map((m) => (
                       <div key={m.id} onClick={() => { setMateriaSeleccionada(m.id); setVistaActual(usuarioActivo ? "subir" : "auth"); }} className={`p-2.5 rounded-lg cursor-pointer transition flex flex-col justify-between min-h-[115px] ${m.total_evidencias > 0 ? "bg-emerald-950 border-2 border-emerald-400 text-white" : "bg-slate-900 border border-slate-700 hover:border-blue-400"}`}>
-                        <div className="font-bold text-[11px] text-center leading-tight">{m.nombre}</div>
-                        <div className="mt-2 pt-1.5 border-t border-white/10 text-[10px] flex justify-between font-mono"><span className="text-blue-300">{m.clave}</span><span>{m.total_evidencias > 0 ? `✓ ${m.total_evidencias}` : "+ Subir"}</span></div>
+                        <div className="font-bold text-[11px] text-center leading-tight">{m.nombre}</div><div className="mt-2 pt-1.5 border-t border-white/10 text-[10px] flex justify-between font-mono"><span className="text-blue-300">{m.clave}</span><span>{m.total_evidencias > 0 ? `✓ ${m.total_evidencias}` : "+ Subir"}</span></div>
                       </div>
                     ))}
                   </div>
@@ -403,12 +418,10 @@
               <div className="p-8 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
                 <span className="px-2.5 py-1 rounded bg-blue-950 text-blue-300 border border-blue-800 text-xs font-bold">Analizador con IA Activo</span>
                 <h2 className="text-2xl font-extrabold text-white mt-2">Subir Proyecto a tu Historial</h2>
-                <p className="text-xs text-slate-400 mt-1 mb-6">Sube PDFs, ZIPs, videos o código. La IA extraerá tu stack tecnológico.</p>
 
                 {alerta && (
                   <div className={`mb-6 p-4 rounded-xl border text-xs ${alerta.tipo === "ok" ? "bg-emerald-950 border-emerald-500 text-emerald-200" : "bg-red-950 border-red-500 text-red-200"}`}>
-                    <div className="font-bold text-sm">{alerta.msg}</div>
-                    {alerta.detalleIA && <div className="mt-1 text-slate-300 italic">{alerta.detalleIA}</div>}
+                    <div className="font-bold text-sm">{alerta.msg}</div>{alerta.detalleIA && <div className="mt-1 text-slate-300 italic">{alerta.detalleIA}</div>}
                     {alerta.tipo === "ok" && <button onClick={cargarVistaCV} className="mt-3 px-4 py-1.5 rounded-lg bg-emerald-600 text-white font-bold">Ver Mi CV Actualizado →</button>}
                   </div>
                 )}
@@ -416,12 +429,8 @@
                 <form onSubmit={guardarEvidenciaConIA} className="space-y-4">
                   <div><label className="block text-xs font-bold text-blue-400 mb-1">Materia *</label><select value={materiaSeleccionada} onChange={(e) => setMateriaSeleccionada(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white">{(materias || []).map((m) => (<option key={m.id} value={m.id}>[{m.semestre}° Semestre] {m.clave} - {m.nombre}</option>))}</select></div>
                   <div><label className="block text-xs font-bold text-blue-400 mb-1">Título del Proyecto *</label><input type="text" required value={titulo} onChange={(e) => setTitulo(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" /></div>
-                  <div className="p-4 rounded-xl border-2 border-dashed border-blue-500/60 bg-slate-950"><label className="block text-xs font-bold text-emerald-400 mb-2">Seleccionar Archivos</label><input type="file" multiple onChange={(e) => setColaArchivos([...colaArchivos, ...Array.from(e.target.files)])} className="w-full text-xs text-slate-300 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:bg-blue-600 file:text-white cursor-pointer" />
-                    {colaArchivos.length > 0 && (
-                      <div className="mt-4 pt-3 border-t border-slate-800 space-y-1.5">
-                        {colaArchivos.map((f, i) => (<div key={i} className="flex justify-between items-center bg-slate-900 px-3 py-1.5 rounded-lg text-xs"><span className="text-white">📄 {f.name}</span><button type="button" onClick={() => setColaArchivos(colaArchivos.filter((_, idx) => idx !== i))} className="text-red-400 font-bold ml-2">✕</button></div>))}
-                      </div>
-                    )}
+                  <div className="p-4 rounded-xl border-2 border-dashed border-blue-500/60 bg-slate-950"><label className="block text-xs font-bold text-emerald-400 mb-2">Seleccionar Archivos</label><input type="file" multiple onChange={(e) => setColaArchivos([...colaArchivos, ...Array.from(e.target.files)])} className="w-full text-xs text-slate-300 file:bg-blue-600 file:text-white cursor-pointer" />
+                    {colaArchivos.length > 0 && <div className="mt-4 pt-3 border-t border-slate-800 space-y-1.5">{colaArchivos.map((f, i) => (<div key={i} className="flex justify-between items-center bg-slate-900 px-3 py-1.5 rounded-lg text-xs"><span className="text-white">📄 {f.name}</span><button type="button" onClick={() => setColaArchivos(colaArchivos.filter((_, idx) => idx !== i))} className="text-red-400 font-bold ml-2">✕</button></div>))}</div>}
                   </div>
                   <button type="submit" disabled={subiendo} className="w-full py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-extrabold text-white text-sm uppercase">{subiendo ? "🤖 Analizando..." : `🤖 ANALIZAR Y GUARDAR (${colaArchivos.length} ARCHIVOS)`}</button>
                 </form>
@@ -431,63 +440,24 @@
 
           {vistaActual === "portafolio" && (
             <section className="max-w-7xl mx-auto px-6 py-8">
-              {!datosPortafolio ? (
-                <div className="text-center text-slate-400 p-10 font-bold">Cargando datos de tu currículum...</div>
-              ) : (
+              {!datosPortafolio ? <div className="text-center text-slate-400 p-10 font-bold">Cargando datos de tu currículum...</div> : (
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                  <aside className="lg:col-span-4 space-y-6">
-                    <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
-                      <div className="flex items-center gap-4 pb-5 border-b border-slate-800">
-                        {datosPortafolio.estudiante?.foto_url ? <img src={`${API_BASE}${datosPortafolio.estudiante.foto_url}`} className="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-400" /> : <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-emerald-500 flex items-center justify-center text-xl font-extrabold text-white">{(datosPortafolio.estudiante?.nombre || "Usuario").slice(0, 2).toUpperCase()}</div>}
-                        <div><span className="px-2 py-0.5 rounded bg-blue-950 text-blue-300 text-[10px] font-bold uppercase">ITICs - ITP</span><h2 className="text-xl font-extrabold text-white mt-1 leading-tight">{datosPortafolio.estudiante?.nombre}</h2></div>
-                      </div>
-                      <div className="py-4 border-b border-slate-800"><div className="text-[11px] font-bold text-blue-400 mb-1">🤖 Perfil Generado por IA</div><p className="text-xs text-slate-300">{datosPortafolio.estudiante?.perfil_ia || "Sube tus archivos para generar perfil."}</p></div>
-                      <div className="py-4 border-b border-slate-800 space-y-2 text-xs">
-                        <div className="flex justify-between"><span className="text-slate-400">No. Control:</span><span className="font-mono font-bold text-white">{datosPortafolio.estudiante?.matricula}</span></div>
-                        <div className="flex justify-between"><span className="text-slate-400">Correo Personal:</span><span className="font-mono text-blue-300">{datosPortafolio.estudiante?.correo}</span></div>
-                        <div className="flex justify-between"><span className="text-slate-400">Semestre Vigente:</span><span className="font-extrabold text-emerald-400">{datosPortafolio.estudiante?.semestre_actual}° Semestre</span></div>
-                      </div>
-                      <div className="py-4 border-b border-slate-800"><h3 className="text-xs font-bold text-emerald-400 mb-1">🤖 Stack Tecnológico (IA)</h3>
-                        {(datosPortafolio.metricas?.stack_dominado || []).length > 0 ? (
-                          <div className="flex flex-wrap gap-1.5 mt-2">{(datosPortafolio.metricas.stack_dominado || []).map((t) => <span key={t} className="px-2 py-0.5 rounded bg-blue-950 text-blue-300 text-xs border border-blue-700">✓ {t}</span>)}</div>
-                        ) : (<p className="text-xs text-slate-400">Sube archivos para que la IA detecte habilidades.</p>)}
-                      </div>
-                      <div className="pt-4 space-y-2 print:hidden">
-                        <button onClick={() => window.print()} className="w-full py-2.5 rounded-xl bg-blue-600 text-white font-bold text-xs uppercase">🖨️ Imprimir CV</button>
-                        <button onClick={() => setVistaActual("subir")} className="w-full py-2.5 rounded-xl bg-slate-800 text-slate-200 font-bold text-xs uppercase">+ Subir Evidencia</button>
-                      </div>
-                    </div>
-                  </aside>
-                  <div className="lg:col-span-8 space-y-6">
-                    <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 flex justify-between items-center"><h3 className="text-lg font-extrabold text-white">Historial Académico Semestral</h3>
-                      <select value={semestreActivoHistorial} onChange={(e) => setSemestreActivoHistorial(e.target.value)} className="p-2 rounded-lg bg-slate-950 border border-slate-700 text-xs font-bold text-white"><option value="TODOS">Todos los semestres</option>{[1,2,3,4,5,6,7,8,9].map(s => <option key={s} value={s}>{s}° Semestre</option>)}</select>
-                    </div>
+                  <aside className="lg:col-span-4 space-y-6"><div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
+                    <div className="flex items-center gap-4 pb-5 border-b border-slate-800">{datosPortafolio.estudiante?.foto_url ? <img src={`${API_BASE}${datosPortafolio.estudiante.foto_url}`} className="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-400" /> : <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-emerald-500 flex items-center justify-center text-xl font-extrabold text-white">{(datosPortafolio.estudiante?.nombre || "U").slice(0, 2).toUpperCase()}</div>}<div><span className="px-2 py-0.5 rounded bg-blue-950 text-blue-300 text-[10px] font-bold uppercase">ITICs - ITP</span><h2 className="text-xl font-extrabold text-white mt-1 leading-tight">{datosPortafolio.estudiante?.nombre}</h2></div></div>
+                    <div className="py-4 border-b border-slate-800"><div className="text-[11px] font-bold text-blue-400 mb-1">🤖 Perfil Generado por IA</div><p className="text-xs text-slate-300">{datosPortafolio.estudiante?.perfil_ia}</p></div>
+                    <div className="py-4 border-b border-slate-800 space-y-2 text-xs"><div className="flex justify-between"><span className="text-slate-400">No. Control:</span><span className="font-mono font-bold text-white">{datosPortafolio.estudiante?.matricula}</span></div><div className="flex justify-between"><span className="text-slate-400">Correo Personal:</span><span className="font-mono text-blue-300">{datosPortafolio.estudiante?.correo}</span></div><div className="flex justify-between"><span className="text-slate-400">Semestre Vigente:</span><span className="font-extrabold text-emerald-400">{datosPortafolio.estudiante?.semestre_actual}° Semestre</span></div></div>
+                    <div className="py-4 border-b border-slate-800"><h3 className="text-xs font-bold text-emerald-400 mb-1">🤖 Stack Tecnológico (IA)</h3>{(datosPortafolio.metricas?.stack_dominado || []).length > 0 ? <div className="flex flex-wrap gap-1.5 mt-2">{(datosPortafolio.metricas.stack_dominado || []).map((t) => <span key={t} className="px-2 py-0.5 rounded bg-blue-950 text-blue-300 text-xs border border-blue-700">✓ {t}</span>)}</div> : <p className="text-xs text-slate-400">Sube archivos para que la IA detecte habilidades.</p>}</div>
+                    <div className="pt-4 space-y-2 print:hidden"><button onClick={() => window.print()} className="w-full py-2.5 rounded-xl bg-blue-600 text-white font-bold text-xs uppercase">🖨️ Imprimir CV</button><button onClick={() => setVistaActual("subir")} className="w-full py-2.5 rounded-xl bg-slate-800 text-slate-200 font-bold text-xs uppercase">+ Subir Evidencia</button></div>
+                  </div></aside>
+                  <div className="lg:col-span-8 space-y-6"><div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 flex justify-between items-center"><h3 className="text-lg font-extrabold text-white">Historial Académico Semestral</h3><select value={semestreActivoHistorial} onChange={(e) => setSemestreActivoHistorial(e.target.value)} className="p-2 rounded-lg bg-slate-950 border border-slate-700 text-xs font-bold text-white"><option value="TODOS">Todos los semestres</option>{[1,2,3,4,5,6,7,8,9].map(s => <option key={s} value={s}>{s}° Semestre</option>)}</select></div>
                     <div className="relative border-l-2 border-blue-600 ml-4 pl-6 space-y-8">
                       {construirHistorialPorSemestre().map((b) => (
-                        <div key={b.semestre} className="relative">
-                          <div className={`absolute -left-[33px] top-1 w-4 h-4 rounded-full border-4 border-slate-950 ${b.totalEvidenciasSemestre > 0 ? "bg-emerald-400" : "bg-slate-600"}`} />
-                          <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 flex justify-between mb-3"><span className="font-extrabold text-sm text-white">{b.semestre}° Semestre</span><span className="text-xs text-emerald-400 font-bold">{b.totalEvidenciasSemestre} proyecto(s)</span></div>
+                        <div key={b.semestre} className="relative"><div className={`absolute -left-[33px] top-1 w-4 h-4 rounded-full border-4 border-slate-950 ${b.totalEvidenciasSemestre > 0 ? "bg-emerald-400" : "bg-slate-600"}`} /><div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 flex justify-between mb-3"><span className="font-extrabold text-sm text-white">{b.semestre}° Semestre</span><span className="text-xs text-emerald-400 font-bold">{b.totalEvidenciasSemestre} proyecto(s)</span></div>
                           <div className="space-y-3">
                             {b.materias.map((mat) => (
-                              <div key={mat.id} className={`p-4 rounded-xl border ${mat.evidencias.length > 0 ? "bg-slate-900 border-emerald-500/60" : "bg-slate-900/40 border-slate-800"}`}>
-                                <div className="flex justify-between items-center"><div><span className="font-mono text-xs text-blue-400 font-bold mr-2">{mat.clave}</span><span className="font-bold text-white text-sm">{mat.nombre}</span></div><button onClick={() => { setMateriaSeleccionada(mat.id); setVistaActual("subir"); }} className="px-2.5 py-1 rounded bg-slate-800 text-xs font-bold">+ Subir</button></div>
-                                {mat.evidencias.length > 0 && (
-                                  <div className="mt-3 pt-3 border-t border-slate-800 space-y-3">
-                                    {mat.evidencias.map((ev) => (
-                                      <div key={ev.id} className="p-3.5 rounded-xl bg-slate-950 border border-slate-800">
-                                        <div className="flex justify-between"><h5 className="font-bold text-white text-sm">{ev.titulo}</h5><span className="text-[11px] text-slate-400 font-mono">{ev.fecha}</span></div>
-                                        {ev.analisis_ia && <p className="text-xs text-emerald-300 mt-1.5 bg-emerald-950/40 p-2 rounded border border-emerald-800/50">🤖 {ev.analisis_ia}</p>}
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
-                                          {(ev.archivos || []).map((arch) => (
-                                            <div key={arch.id} className="p-2 rounded bg-slate-900 border border-slate-800 flex justify-between items-center text-xs"><span className="truncate text-white">📎 {arch.nombre}</span>
-                                              <div className="flex gap-1 shrink-0"><button onClick={() => previsualizarArchivo(arch)} className="px-2 py-1 rounded bg-blue-600 text-white font-bold">Abrir</button><a href={`${API_BASE}${arch.url}`} download={arch.nombre} className="px-2 py-1 rounded bg-slate-800 text-white font-bold">↓</a></div>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
+                              <div key={mat.id} className={`p-4 rounded-xl border ${mat.evidencias.length > 0 ? "bg-slate-900 border-emerald-500/60" : "bg-slate-900/40 border-slate-800"}`}><div className="flex justify-between items-center"><div><span className="font-mono text-xs text-blue-400 font-bold mr-2">{mat.clave}</span><span className="font-bold text-white text-sm">{mat.nombre}</span></div><button onClick={() => { setMateriaSeleccionada(mat.id); setVistaActual("subir"); }} className="px-2.5 py-1 rounded bg-slate-800 text-xs font-bold">+ Subir</button></div>
+                                {mat.evidencias.length > 0 && <div className="mt-3 pt-3 border-t border-slate-800 space-y-3">{mat.evidencias.map((ev) => (<div key={ev.id} className="p-3.5 rounded-xl bg-slate-950 border border-slate-800"><div className="flex justify-between"><h5 className="font-bold text-white text-sm">{ev.titulo}</h5><span className="text-[11px] text-slate-400 font-mono">{ev.fecha}</span></div>{ev.analisis_ia && <p className="text-xs text-emerald-300 mt-1.5 bg-emerald-950/40 p-2 rounded border border-emerald-800/50">🤖 {ev.analisis_ia}</p>}
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">{(ev.archivos || []).map((arch) => (<div key={arch.id} className="p-2 rounded bg-slate-900 border border-slate-800 flex justify-between items-center text-xs"><span className="truncate text-white">📎 {arch.nombre}</span><div className="flex gap-1 shrink-0"><button onClick={() => previsualizarArchivo(arch)} className="px-2 py-1 rounded bg-blue-600 text-white font-bold">Abrir</button><a href={`${API_BASE}${arch.url}`} download={arch.nombre} className="px-2 py-1 rounded bg-slate-800 text-white font-bold">↓</a></div></div>))}</div></div>))}</div>}
                               </div>
                             ))}
                           </div>
@@ -502,8 +472,7 @@
 
           {archivoEnVisor && (
             <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
-              <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-5xl w-full p-6">
-                <div className="flex justify-between items-center mb-4"><h4 className="font-bold text-white">{archivoEnVisor.nombre}</h4><button onClick={() => setArchivoEnVisor(null)} className="px-3 py-1 rounded bg-red-600 text-white text-xs font-bold">Cerrar ✕</button></div>
+              <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-5xl w-full p-6"><div className="flex justify-between items-center mb-4"><h4 className="font-bold text-white">{archivoEnVisor.nombre}</h4><button onClick={() => setArchivoEnVisor(null)} className="px-3 py-1 rounded bg-red-600 text-white text-xs font-bold">Cerrar ✕</button></div>
                 {archivoEnVisor.tipo === "IMAGEN" ? <img src={`${API_BASE}${archivoEnVisor.url}`} className="max-h-[70vh] mx-auto rounded" /> : archivoEnVisor.tipo === "VIDEO" || archivoEnVisor.nombre?.toLowerCase().endsWith(".mp4") ? <video controls autoPlay className="max-h-[70vh] w-full rounded"><source src={`${API_BASE}${archivoEnVisor.url}`} /></video> : textoCodigoVisor ? <pre className="bg-slate-950 text-emerald-300 p-4 rounded-xl text-xs font-mono overflow-auto max-h-[70vh]">{textoCodigoVisor}</pre> : <iframe src={`${API_BASE}${archivoEnVisor.url}`} className="w-full h-[70vh] rounded-xl bg-white" />}
               </div>
             </div>

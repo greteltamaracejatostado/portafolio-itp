@@ -6,7 +6,8 @@ import uuid
 import zipfile
 import hashlib
 import mimetypes
-from datetime import datetime, date
+import random
+from datetime import datetime, date, timedelta
 from typing import Optional, List
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,10 +25,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./portafolio_ia_itp.db")
 UPLOAD_DIR = "./storage_evidencias"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-engine = create_engine(
-    DATABASE_URL, 
-    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
-)
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base.metadata.create_all(bind=engine)
 
@@ -41,7 +39,7 @@ def preparar_reticula():
 
 preparar_reticula()
 
-app = FastAPI(title="CommonKADS - Portafolio Académico ITP con IA", version="5.0.0")
+app = FastAPI(title="CommonKADS - Portafolio Académico ITP con IA", version="6.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -81,9 +79,9 @@ def calcular_semestre_vigente(usuario: Usuario) -> dict:
             dias_extra = (hoy - fin_sem).days
             semestres_adicionales = (dias_extra // 180) + 1
             nuevo_semestre = min(9, sem_base + semestres_adicionales)
-            return {"semestre_calculado": nuevo_semestre, "modo": "Automático (Actualizado por fecha)", "explicacion": f"El periodo terminó el {fin_sem}; actualizado a {nuevo_semestre}° semestre."}
+            return {"semestre_calculado": nuevo_semestre, "modo": "Automático (Actualizado)", "explicacion": f"El periodo terminó el {fin_sem}; actualizado a {nuevo_semestre}° semestre."}
     except Exception:
-        return {"semestre_calculado": sem_base, "modo": "Respaldo Manual", "explicacion": f"Formato de fecha inválido; se mantiene {sem_base}° semestre manual."}
+        return {"semestre_calculado": sem_base, "modo": "Respaldo Manual", "explicacion": f"Formato inválido; semestre {sem_base}° manual."}
 
 DICCIONARIO_TECNOLOGIAS = {
     "Python": [r"\bpython\b", r"\.py\b", r"\bfastapi\b", r"\bflask\b", r"\bdjango\b", r"\bpandas\b"],
@@ -175,14 +173,13 @@ def clasificar_extension(filename: str) -> TipoEvidencia:
         return TipoEvidencia.VIDEO
     return TipoEvidencia.OTRO
 
-# --- ENDPOINTS DE AUTENTICACIÓN CON VALIDACIÓN DE CORREO Y PALABRA SECRETA ---
+# --- ENDPOINTS DE AUTENTICACIÓN Y RECUPERACIÓN (FLUJO TIPO GOOGLE OTP) ---
 @app.post("/api/auth/registro", status_code=201)
 async def registrar_estudiante(
     nombre_completo: str = Form(...),
     matricula: str = Form(...),
     correo: str = Form(...),
     password: str = Form(...),
-    palabra_recuperacion: str = Form(...), # NUEVO: Seguridad adicional
     es_itics: bool = Form(True),
     modo_semestre: str = Form("AUTOMATICO"),
     semestre_base: int = Form(1),
@@ -194,10 +191,9 @@ async def registrar_estudiante(
     matricula_limpia = matricula.strip().upper()
     correo_limpio = correo.strip().lower()
 
-    # Validación Estricta de Correo Real con Regex
     patron_correo = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
     if not re.match(patron_correo, correo_limpio):
-        raise HTTPException(status_code=400, detail="El formato del correo electrónico no es válido. Escribe un correo real.")
+        raise HTTPException(status_code=400, detail="El formato del correo electrónico no es válido.")
 
     existente = db.query(Usuario).filter(
         (Usuario.matricula == matricula_limpia) | (Usuario.correo == correo_limpio)
@@ -221,7 +217,6 @@ async def registrar_estudiante(
         matricula=matricula_limpia,
         correo=correo_limpio,
         password_hash=hashlib.sha256(password.encode()).hexdigest(),
-        palabra_recuperacion_hash=hashlib.sha256(palabra_recuperacion.strip().lower().encode()).hexdigest(),
         foto_url=foto_ruta,
         es_itics=es_itics,
         modo_semestre=modo_semestre,
@@ -236,16 +231,11 @@ async def registrar_estudiante(
 
     info_sem = calcular_semestre_vigente(nuevo)
     return {
-        "mensaje": "Registro completado exitosamente",
+        "mensaje": "Cuenta creada exitosamente",
         "usuario": {
-            "id": nuevo.id,
-            "nombre": nuevo.nombre_completo,
-            "matricula": nuevo.matricula,
-            "correo": nuevo.correo,
-            "foto_url": nuevo.foto_url,
-            "es_itics": nuevo.es_itics,
-            "semestre_actual": info_sem["semestre_calculado"],
-            "detalle_semestre": info_sem["explicacion"]
+            "id": nuevo.id, "nombre": nuevo.nombre_completo, "matricula": nuevo.matricula,
+            "correo": nuevo.correo, "foto_url": nuevo.foto_url, "es_itics": nuevo.es_itics,
+            "semestre_actual": info_sem["semestre_calculado"], "detalle_semestre": info_sem["explicacion"]
         }
     }
 
@@ -267,25 +257,18 @@ def login_estudiante(
     info_sem = calcular_semestre_vigente(usuario)
     return {
         "usuario": {
-            "id": usuario.id,
-            "nombre": usuario.nombre_completo,
-            "matricula": usuario.matricula,
-            "correo": usuario.correo,
-            "foto_url": usuario.foto_url,
-            "es_itics": usuario.es_itics,
-            "semestre_actual": info_sem["semestre_calculado"],
-            "detalle_semestre": info_sem["explicacion"]
+            "id": usuario.id, "nombre": usuario.nombre_completo, "matricula": usuario.matricula,
+            "correo": usuario.correo, "foto_url": usuario.foto_url, "es_itics": usuario.es_itics,
+            "semestre_actual": info_sem["semestre_calculado"], "detalle_semestre": info_sem["explicacion"]
         }
     }
 
-@app.post("/api/auth/recuperar")
-def recuperar_password(
-    identificador: str = Form(...),
-    palabra_secreta: str = Form(...),
-    nueva_password: str = Form(...),
+@app.post("/api/auth/solicitar-codigo")
+def solicitar_codigo_recuperacion(
+    correo_o_matricula: str = Form(...),
     db: Session = Depends(get_db)
 ):
-    ident = identificador.strip()
+    ident = correo_o_matricula.strip()
     usuario = db.query(Usuario).filter(
         (Usuario.matricula == ident.upper()) | (Usuario.correo == ident.lower())
     ).first()
@@ -293,15 +276,44 @@ def recuperar_password(
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado en el sistema.")
         
-    hash_secreto_ingresado = hashlib.sha256(palabra_secreta.strip().lower().encode()).hexdigest()
-    if usuario.palabra_recuperacion_hash != hash_secreto_ingresado:
-        raise HTTPException(status_code=401, detail="La palabra secreta de recuperación es incorrecta.")
+    codigo = str(random.randint(100000, 999999))
+    usuario.codigo_recuperacion = codigo
+    usuario.expiracion_codigo = datetime.utcnow() + timedelta(minutes=15)
+    db.commit()
+    
+    return {
+        "mensaje": "Código generado exitosamente. (Para tu demo escolar, el código de verificación es: " + codigo + ")"
+    }
+
+@app.post("/api/auth/restablecer-password")
+def restablecer_password(
+    correo_o_matricula: str = Form(...),
+    codigo: str = Form(...),
+    nueva_password: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    ident = correo_o_matricula.strip()
+    usuario = db.query(Usuario).filter(
+        (Usuario.matricula == ident.upper()) | (Usuario.correo == ident.lower())
+    ).first()
+    
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+        
+    if not usuario.codigo_recuperacion or usuario.codigo_recuperacion != codigo.strip():
+        raise HTTPException(status_code=401, detail="El código de verificación es incorrecto.")
+        
+    if not usuario.expiracion_codigo or datetime.utcnow() > usuario.expiracion_codigo:
+        raise HTTPException(status_code=401, detail="El código de verificación ha expirado. Solicita uno nuevo.")
         
     usuario.password_hash = hashlib.sha256(nueva_password.encode()).hexdigest()
+    usuario.codigo_recuperacion = None
+    usuario.expiracion_codigo = None
     db.commit()
-    return {"mensaje": "Contraseña actualizada exitosamente. Ya puedes iniciar sesión."}
+    
+    return {"mensaje": "Contraseña actualizada exitosamente. Ya puedes iniciar sesión con tu nueva contraseña."}
 
-# --- ENDPOINTS RETÍCULA, SUBIDA Y CV SE MANTIENEN EXACTAMENTE IGUAL ---
+# --- ENDPOINTS RETÍCULA, SUBIDA Y CV ---
 @app.get("/api/reticula/materias")
 def listar_materias(estudiante_id: Optional[int] = None, db: Session = Depends(get_db)):
     materias = db.query(Materia).order_by(Materia.semestre, Materia.id).all()
@@ -312,14 +324,7 @@ def listar_materias(estudiante_id: Optional[int] = None, db: Session = Depends(g
     for ev in query_ev.all():
         conteo_evidencias[ev.materia_id] = conteo_evidencias.get(ev.materia_id, 0) + 1
 
-    return [
-        {
-            "id": m.id, "clave": m.clave, "nombre": m.nombre,
-            "semestre": m.semestre, "satca": m.satca, 
-            "creditos": m.creditos, "tipo": m.tipo_asignatura,
-            "total_evidencias": conteo_evidencias.get(m.id, 0)
-        } for m in materias
-    ]
+    return [{"id": m.id, "clave": m.clave, "nombre": m.nombre, "semestre": m.semestre, "satca": m.satca, "creditos": m.creditos, "tipo": m.tipo_asignatura, "total_evidencias": conteo_evidencias.get(m.id, 0)} for m in materias]
 
 @app.post("/api/evidencias/subir", status_code=201)
 async def subir_evidencia(
@@ -332,33 +337,23 @@ async def subir_evidencia(
     db: Session = Depends(get_db)
 ):
     usuario = db.query(Usuario).filter(Usuario.id == estudiante_id).first()
-    if not usuario:
-        raise HTTPException(status_code=404, detail="Primero debes iniciar sesión.")
+    if not usuario: raise HTTPException(status_code=404, detail="Primero debes iniciar sesión.")
 
     materia = db.query(Materia).filter(Materia.id == materia_id).first()
-    if not materia:
-        raise HTTPException(status_code=400, detail="Selecciona una materia válida.")
-
     competencia = db.query(Competencia).filter(Competencia.materia_id == materia.id).first()
     archivos_validos = [a for a in archivos if a.filename]
-    if not archivos_validos and not url_enlace_externo:
-        raise HTTPException(status_code=400, detail="Adjunta al menos un archivo o enlace.")
+    if not archivos_validos and not url_enlace_externo: raise HTTPException(status_code=400, detail="Adjunta al menos un archivo o enlace.")
 
     nueva_evidencia = Evidencia(
-        titulo=titulo,
-        descripcion=descripcion,
+        titulo=titulo, descripcion=descripcion,
         tipo=TipoEvidencia.MULTIPLE if len(archivos_validos) > 1 else (clasificar_extension(archivos_validos[0].filename) if archivos_validos else TipoEvidencia.ENLACE),
-        url_enlace_externo=url_enlace_externo,
-        estudiante_id=usuario.id,
-        materia_id=materia.id,
-        competencia_id=competencia.id
+        url_enlace_externo=url_enlace_externo, estudiante_id=usuario.id, materia_id=materia.id, competencia_id=competencia.id
     )
     db.add(nueva_evidencia)
     db.flush()
 
     carpeta_destino = os.path.join(UPLOAD_DIR, usuario.matricula, f"materia_{materia.id}", f"evidencia_{nueva_evidencia.id}")
     os.makedirs(carpeta_destino, exist_ok=True)
-
     textos_para_ia = []
     resumen_archivos_guardados = []
 
@@ -366,72 +361,43 @@ async def subir_evidencia(
         nombre_limpio = arch.filename
         tipo_arch = clasificar_extension(nombre_limpio)
         mime_detectado = arch.content_type or mimetypes.guess_type(nombre_limpio)[0] or "application/octet-stream"
-        
         identificador_unico = f"{uuid.uuid4().hex[:8]}_{nombre_limpio}"
         ruta_fisica = os.path.join(carpeta_destino, identificador_unico)
-        
         contenido = await arch.read()
         tamano = len(contenido)
         hash_sha256 = hashlib.sha256(contenido).hexdigest()
-        
-        with open(ruta_fisica, "wb") as f:
-            f.write(contenido)
-            
+        with open(ruta_fisica, "wb") as f: f.write(contenido)
         texto_interno = extraer_texto_de_archivo(nombre_limpio, contenido)
         textos_para_ia.append(texto_interno)
-
         ruta_url = f"/archivos/{usuario.matricula}/materia_{materia.id}/evidencia_{nueva_evidencia.id}/{identificador_unico}"
         
         registro_archivo = ArchivoEvidencia(
-            evidencia_id=nueva_evidencia.id,
-            nombre_original=nombre_limpio,
-            ruta_servidor=ruta_url,
-            mime_type=mime_detectado,
-            tipo_archivo=tipo_arch,
-            tamano_bytes=tamano,
-            sha256_hash=hash_sha256,
-            resumen_extraido_ia=texto_interno[:300]
+            evidencia_id=nueva_evidencia.id, nombre_original=nombre_limpio, ruta_servidor=ruta_url,
+            mime_type=mime_detectado, tipo_archivo=tipo_arch, tamano_bytes=tamano, sha256_hash=hash_sha256, resumen_extraido_ia=texto_interno[:300]
         )
         db.add(registro_archivo)
         resumen_archivos_guardados.append({"nombre": nombre_limpio, "url": ruta_url, "sha256": hash_sha256})
 
     resultado_ia = analizar_evidencia_con_ia(titulo, descripcion, materia.nombre, textos_para_ia, url_enlace_externo or "")
-
     nueva_evidencia.tags_ia_detectados = ", ".join(resultado_ia["tecnologias"])
     nueva_evidencia.analisis_ia = resultado_ia["resumen_cv"]
-
     db.commit()
-    return {
-        "mensaje": f"¡Guardado! La IA detectó: {', '.join(resultado_ia['tecnologias'])}",
-        "analisis_ia": resultado_ia["resumen_cv"],
-        "tecnologias_ia": resultado_ia["tecnologias"]
-    }
+    return {"mensaje": f"¡Guardado! La IA detectó: {', '.join(resultado_ia['tecnologias'])}", "analisis_ia": resultado_ia["resumen_cv"], "tecnologias_ia": resultado_ia["tecnologias"]}
 
 @app.get("/api/archivos/leer-texto/{archivo_id}", response_class=PlainTextResponse)
 def leer_archivo_texto(archivo_id: int, db: Session = Depends(get_db)):
     arch = db.query(ArchivoEvidencia).filter(ArchivoEvidencia.id == archivo_id).first()
-    if not arch:
-        raise HTTPException(status_code=404, detail="Archivo no encontrado")
+    if not arch: raise HTTPException(status_code=404, detail="Archivo no encontrado")
     ruta_real = arch.ruta_servidor.replace("/archivos/", f"{UPLOAD_DIR}/")
-    if not os.path.exists(ruta_real):
-        raise HTTPException(status_code=404, detail="Archivo físico no encontrado")
-    with open(ruta_real, "r", encoding="utf-8", errors="replace") as f:
-        return f.read()
+    if not os.path.exists(ruta_real): raise HTTPException(status_code=404, detail="Archivo físico no encontrado")
+    with open(ruta_real, "r", encoding="utf-8", errors="replace") as f: return f.read()
 
 @app.get("/api/portafolio/{estudiante_id}")
 def obtener_portafolio_curricular(estudiante_id: int, db: Session = Depends(get_db)):
     estudiante = db.query(Usuario).filter(Usuario.id == estudiante_id).first()
-    if not estudiante:
-        raise HTTPException(status_code=404, detail="Estudiante no encontrado")
-
+    if not estudiante: raise HTTPException(status_code=404, detail="Estudiante no encontrado")
     info_sem = calcular_semestre_vigente(estudiante)
-
-    evidencias = (
-        db.query(Evidencia)
-        .filter(Evidencia.estudiante_id == estudiante.id, Evidencia.is_deleted == False)
-        .order_by(Evidencia.fecha_creacion.desc())
-        .all()
-    )
+    evidencias = db.query(Evidencia).filter(Evidencia.estudiante_id == estudiante.id, Evidencia.is_deleted == False).order_by(Evidencia.fecha_creacion.desc()).all()
 
     mapa_materias = {}
     stack_ia_global = set()
@@ -441,51 +407,21 @@ def obtener_portafolio_curricular(estudiante_id: int, db: Session = Depends(get_
         mat = ev.materia
         if ev.tags_ia_detectados:
             for tag in ev.tags_ia_detectados.split(","):
-                if tag.strip():
-                    stack_ia_global.add(tag.strip())
-
+                if tag.strip(): stack_ia_global.add(tag.strip())
         if mat.clave not in mapa_materias:
-            mapa_materias[mat.clave] = {
-                "materia_id": mat.id, "clave": mat.clave, "nombre_materia": mat.nombre,
-                "semestre": mat.semestre, "creditos": mat.creditos, "satca": mat.satca, "evidencias": []
-            }
-
+            mapa_materias[mat.clave] = {"materia_id": mat.id, "clave": mat.clave, "nombre_materia": mat.nombre, "semestre": mat.semestre, "creditos": mat.creditos, "satca": mat.satca, "evidencias": []}
         lista_archivos = []
         for a in ev.archivos:
             total_archivos_subidos += 1
-            lista_archivos.append({
-                "id": a.id, "nombre": a.nombre_original, "url": a.ruta_servidor,
-                "tipo": a.tipo_archivo.value, "tamano_kb": round(a.tamano_bytes / 1024, 1), "sha256": a.sha256_hash
-            })
-
-        mapa_materias[mat.clave]["evidencias"].append({
-            "id": ev.id, "titulo": ev.titulo, "descripcion": ev.descripcion, "analisis_ia": ev.analisis_ia,
-            "url_enlace_externo": ev.url_enlace_externo, "tags_ia": [t.strip() for t in (ev.tags_ia_detectados or "").split(",") if t.strip()],
-            "fecha": ev.fecha_creacion.strftime("%Y-%m-%d %H:%M"), "archivos": lista_archivos
-        })
+            lista_archivos.append({"id": a.id, "nombre": a.nombre_original, "url": a.ruta_servidor, "tipo": a.tipo_archivo.value, "tamano_kb": round(a.tamano_bytes / 1024, 1), "sha256": a.sha256_hash})
+        mapa_materias[mat.clave]["evidencias"].append({"id": ev.id, "titulo": ev.titulo, "descripcion": ev.descripcion, "analisis_ia": ev.analisis_ia, "url_enlace_externo": ev.url_enlace_externo, "tags_ia": [t.strip() for t in (ev.tags_ia_detectados or "").split(",") if t.strip()], "fecha": ev.fecha_creacion.strftime("%Y-%m-%d %H:%M"), "archivos": lista_archivos})
 
     materias_ordenadas = sorted(mapa_materias.values(), key=lambda x: x["semestre"])
     total_materias_db = db.query(Materia).count() or 54
-
-    perfil_ia = (
-        f"Estudiante de {info_sem['semestre_calculado']}° semestre de Ingeniería en TICs en el Instituto Tecnológico de Puebla "
-        f"con {total_archivos_subidos} evidencias prácticas verificadas. "
-        + (f"Dominio comprobado mediante análisis de código y documentos en: {', '.join(sorted(list(stack_ia_global)))}." if stack_ia_global else "Sube tu primer PDF, ZIP o código para que la IA construya tu perfil técnico.")
-    )
+    perfil_ia = f"Estudiante de {info_sem['semestre_calculado']}° semestre de Ingeniería en TICs en el Instituto Tecnológico de Puebla con {total_archivos_subidos} evidencias prácticas verificadas. " + (f"Dominio comprobado mediante análisis de código y documentos en: {', '.join(sorted(list(stack_ia_global)))}." if stack_ia_global else "Sube tu primer PDF, ZIP o código para que la IA construya tu perfil técnico.")
 
     return {
-        "estudiante": {
-            "id": estudiante.id, "nombre": estudiante.nombre_completo, "matricula": estudiante.matricula,
-            "correo": estudiante.correo, "foto_url": estudiante.foto_url, "es_itics": estudiante.es_itics,
-            "semestre_actual": info_sem["semestre_calculado"], "modo_semestre": info_sem["modo"],
-            "explicacion_semestre": info_sem["explicacion"], "carrera": "Ingeniería en Tecnologías de la Información y Comunicaciones (ITIC-2010-225)",
-            "especialidad": "Análisis de Datos (ITIE-ADD-2025-01)", "perfil_ia": perfil_ia
-        },
-        "metricas": {
-            "total_evidencias": len(evidencias), "total_archivos": total_archivos_subidos,
-            "materias_con_evidencia": len(materias_ordenadas), "total_materias_reticula": total_materias_db,
-            "porcentaje_reticula": round((len(materias_ordenadas) / total_materias_db) * 100, 1),
-            "stack_dominado": sorted(list(stack_ia_global))
-        },
+        "estudiante": {"id": estudiante.id, "nombre": estudiante.nombre_completo, "matricula": estudiante.matricula, "correo": estudiante.correo, "foto_url": estudiante.foto_url, "es_itics": estudiante.es_itics, "semestre_actual": info_sem["semestre_calculado"], "modo_semestre": info_sem["modo"], "explicacion_semestre": info_sem["explicacion"], "carrera": "Ingeniería en Tecnologías de la Información y Comunicaciones (ITIC-2010-225)", "especialidad": "Análisis de Datos (ITIE-ADD-2025-01)", "perfil_ia": perfil_ia},
+        "metricas": {"total_evidencias": len(evidencias), "total_archivos": total_archivos_subidos, "materias_con_evidencia": len(materias_ordenadas), "total_materias_reticula": total_materias_db, "porcentaje_reticula": round((len(materias_ordenadas) / total_materias_db) * 100, 1), "stack_dominado": sorted(list(stack_ia_global))},
         "portafolio_por_materia": materias_ordenadas
     }

@@ -72,7 +72,11 @@ class Usuario(Base):
     matricula = Column(String(20), unique=True, nullable=False, index=True)
     correo = Column(String(120), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
-    palabra_recuperacion_hash = Column(String(255), nullable=False) # NUEVO: Seguridad de recuperación
+    
+    # NUEVO: Lógica de Recuperación Segura (OTP)
+    codigo_recuperacion = Column(String(10), nullable=True)
+    expiracion_codigo = Column(DateTime, nullable=True)
+    
     foto_url = Column(String(500), nullable=True)
     es_itics = Column(Boolean, default=True)
     
@@ -211,18 +215,8 @@ def inicializar_reticula_itp(db_session):
     ]
 
     for sem, clave, nombre, satca, cred, tipo in catalogo_materias:
-        mat = Materia(
-            clave=clave, nombre=nombre, semestre=sem, 
-            satca=satca, creditos=cred, tipo_asignatura=tipo, carrera_id=itics.id
-        )
+        mat = Materia(clave=clave, nombre=nombre, semestre=sem, satca=satca, creditos=cred, tipo_asignatura=tipo, carrera_id=itics.id)
         db_session.add(mat)
         db_session.flush()
-        db_session.add(
-            Competencia(
-                numero_unidad=1,
-                descripcion=f"Competencia acreditada en {nombre}.",
-                criterio_desempeno="Evidencia analizada y verificada.",
-                materia_id=mat.id
-            )
-        )
+        db_session.add(Competencia(numero_unidad=1, descripcion=f"Competencia acreditada en {nombre}.", criterio_desempeno="Evidencia analizada y verificada.", materia_id=mat.id))
     db_session.commit()
