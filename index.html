@@ -7,14 +7,13 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 <body class="bg-slate-950 text-slate-100">
   <div id="root"></div>
 
   <script type="text/babel">
     const { useState, useEffect } = React;
-    // Detecta automáticamente si está en localhost o desplegado en una página real desde GitHub
     const API_BASE = window.location.origin.includes("http") ? window.location.origin : "http://localhost:8000";
 
     function PortafolioITPApp() {
@@ -297,7 +296,7 @@
             </div>
           </nav>
 
-          {/* 1. PANTALLA DE INICIO (EXPLICACIÓN DE LA PLATAFORMA) */}
+          {/* 1. PANTALLA DE INICIO */}
           {vistaActual === "inicio" && (
             <main className="max-w-6xl mx-auto px-6 py-16">
               <div className="text-center max-w-4xl mx-auto">
@@ -311,7 +310,7 @@
                   </span>
                 </h1>
                 <p className="mt-6 text-base md:text-lg text-slate-300 leading-relaxed">
-                  Los sistemas escolares tradicionales solo guardan una calificación numérica. En esta plataforma te registras con tu número de control, subes tus prácticas (PDFs, proyectos ZIP, videos o código) y nuestra <strong>Inteligencia Artificial lee tus archivos</strong> para detectar automáticamente tu stack tecnológico y armar tu Currículum Verificable de 1° a 9° semestre.
+                  Sistema especializado en la carrera de <strong>Ingeniería en Tecnologías de la Información y Comunicaciones (ITICs)</strong> del ITP. Regístrate con tu correo personal y número de control, sube tus evidencias y deja que la IA organice tu historial de 1° a 9° semestre.
                 </p>
 
                 <div className="mt-10 flex flex-wrap justify-center gap-4">
@@ -340,31 +339,10 @@
                   )}
                 </div>
               </div>
-
-              <div className="grid md:grid-cols-3 gap-6 mt-16">
-                <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800">
-                  <div className="text-blue-400 font-extrabold text-lg mb-2">1. Avance Semestral Inteligente</div>
-                  <p className="text-sm text-slate-300">
-                    Registra la fecha de inicio y término de tu semestre para que el sistema actualice tu grado automáticamente, o elígelo de forma manual cuando lo necesites.
-                  </p>
-                </div>
-                <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800">
-                  <div className="text-emerald-400 font-extrabold text-lg mb-2">2. IA que lee tus PDFs y ZIPs</div>
-                  <p className="text-sm text-slate-300">
-                    No necesitas escribir qué tecnologías sabes. La IA inspecciona el contenido de tus PDFs, archivos comprimidos y códigos para extraer tu Stack Tecnológico real.
-                  </p>
-                </div>
-                <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800">
-                  <div className="text-amber-400 font-extrabold text-lg mb-2">3. Historial de 1° a 9° Semestre</div>
-                  <p className="text-sm text-slate-300">
-                    Vinculado a las 54 asignaturas de la retícula oficial de ITICs (ITIC-2010-225) y la especialidad de Análisis de Datos del ITP.
-                  </p>
-                </div>
-              </div>
             </main>
           )}
 
-          {/* 2. PANTALLA DE REGISTRO COMPLETO E INICIO DE SESIÓN */}
+          {/* 2. PANTALLA DE REGISTRO */}
           {vistaActual === "auth" && (
             <section className="max-w-2xl mx-auto px-6 py-10">
               <div className="p-8 rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl">
@@ -391,9 +369,9 @@
 
                 {modoAuth === "registro" ? (
                   <form onSubmit={manejarRegistro} className="space-y-4">
-                    <h2 className="text-xl font-extrabold text-white">Registro de Estudiante ITP</h2>
+                    <h2 className="text-xl font-extrabold text-white">Registro de Estudiante ITICs</h2>
                     <p className="text-xs text-slate-400">
-                      Tus datos se usarán para generar el encabezado oficial de tu Currículum Vitae y tu historial por semestre.
+                      Actualmente disponible de forma exclusiva para la carrera de ITICs del ITP.
                     </p>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -404,12 +382,12 @@
                           required
                           value={nombreReg}
                           onChange={(e) => setNombreReg(e.target.value)}
-                          placeholder="Ej. Nombre Apellido Paterno Materno"
+                          placeholder="Ej. Gretel Tamara Ceja Tostado"
                           className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold uppercase text-blue-400 mb-1">Número de Control (Matrícula) *</label>
+                        <label className="block text-xs font-bold uppercase text-blue-400 mb-1">Número de Control *</label>
                         <input
                           type="text"
                           required
@@ -423,13 +401,13 @@
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-bold uppercase text-blue-400 mb-1">Correo Institucional *</label>
+                        <label className="block text-xs font-bold uppercase text-blue-400 mb-1">Correo Personal *</label>
                         <input
                           type="email"
                           required
                           value={correoReg}
                           onChange={(e) => setCorreoReg(e.target.value)}
-                          placeholder="Ej. L23221036@puebla.tecnm.mx"
+                          placeholder="Ej. tu_correo@gmail.com"
                           className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white"
                         />
                       </div>
@@ -448,18 +426,17 @@
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-bold uppercase text-blue-400 mb-1">¿Perteneces a la carrera de ITICs? *</label>
+                        <label className="block text-xs font-bold uppercase text-blue-400 mb-1">Carrera *</label>
                         <select
                           value={esIticsReg}
                           onChange={(e) => setEsIticsReg(e.target.value === "true")}
                           className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white"
                         >
-                          <option value="true">Sí - Ing. en Tecnologías de la Información y Comunicaciones (ITIC-2010-225)</option>
-                          <option value="false">Otra Ingeniería del ITP</option>
+                          <option value="true">Ingeniería en TICs (ITIC-2010-225)</option>
                         </select>
                       </div>
                       <div>
-                        <label className="block text-xs font-bold uppercase text-emerald-400 mb-1">Foto de Perfil para tu CV (Opcional)</label>
+                        <label className="block text-xs font-bold uppercase text-emerald-400 mb-1">Foto de Perfil (Opcional)</label>
                         <input
                           type="file"
                           accept="image/*"
@@ -469,10 +446,10 @@
                       </div>
                     </div>
 
-                    {/* CONFIGURACIÓN INTELIGENTE DEL SEMESTRE (POR FECHAS O MANUAL) */}
+                    {/* CONTROL INTELIGENTE DE SEMESTRE */}
                     <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
                       <label className="block text-xs font-extrabold uppercase text-amber-400">
-                        Control de Semestre en Curso (Automático por Fechas o Manual)
+                        Control de Semestre (Automático por Fechas o Manual)
                       </label>
                       <div className="flex flex-wrap gap-3 text-xs">
                         <label className="flex items-center gap-2 cursor-pointer">
@@ -481,7 +458,7 @@
                             checked={modoSemestreReg === "AUTOMATICO"}
                             onChange={() => setModoSemestreReg("AUTOMATICO")}
                           />
-                          <span>Automático con fechas de inicio y fin de semestre</span>
+                          <span>Automático con fechas de inicio y fin</span>
                         </label>
                         <label className="flex items-center gap-2 cursor-pointer">
                           <input
@@ -489,13 +466,13 @@
                             checked={modoSemestreReg === "MANUAL"}
                             onChange={() => setModoSemestreReg("MANUAL")}
                           />
-                          <span>No quiero poner fechas (Elegir mi semestre manualmente)</span>
+                          <span>Manual (Elegir semestre directamente)</span>
                         </label>
                       </div>
 
                       <div>
                         <label className="block text-xs text-slate-300 mb-1">
-                          ¿En qué semestre te encuentras actualmente? *
+                          ¿En qué semestre vas en curso? *
                         </label>
                         <select
                           value={semestreManualReg}
@@ -511,7 +488,7 @@
                       {modoSemestreReg === "AUTOMATICO" && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
                           <div>
-                            <label className="block text-[11px] text-slate-400 mb-1">Fecha de Inicio de tu Semestre</label>
+                            <label className="block text-[11px] text-slate-400 mb-1">Fecha de Inicio del Curso</label>
                             <input
                               type="date"
                               value={fechaInicioReg}
@@ -520,7 +497,7 @@
                             />
                           </div>
                           <div>
-                            <label className="block text-[11px] text-slate-400 mb-1">Fecha de Finalización de tu Semestre</label>
+                            <label className="block text-[11px] text-slate-400 mb-1">Fecha de Finalización del Curso</label>
                             <input
                               type="date"
                               value={fechaFinReg}
@@ -529,7 +506,7 @@
                             />
                           </div>
                           <p className="md:col-span-2 text-[11px] text-emerald-400">
-                            ✓ Cuando pase la fecha de finalización, tu perfil pasará automáticamente al siguiente semestre. Si dejas las fechas vacías, se usará el semestre manual sin fallar.
+                            ✓ Si pones las fechas, el sistema actualizará tu semestre al terminar el periodo. Si fallara o las dejas vacías, se usará tu semestre manual de respaldo.
                           </p>
                         </div>
                       )}
@@ -539,7 +516,7 @@
                       type="submit"
                       className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 font-extrabold text-white text-sm uppercase tracking-wider shadow-lg"
                     >
-                      Completar Registro y Crear Mi Portafolio
+                      Registrarme y Crear Mi CV
                     </button>
                   </form>
                 ) : (
@@ -547,14 +524,14 @@
                     <h2 className="text-xl font-extrabold text-white">Iniciar Sesión</h2>
                     <div>
                       <label className="block text-xs font-bold uppercase text-blue-400 mb-1">
-                        Número de Control o Correo Institucional *
+                        Número de Control o Correo Personal *
                       </label>
                       <input
                         type="text"
                         required
                         value={matriculaReg}
                         onChange={(e) => setMatriculaReg(e.target.value)}
-                        placeholder="Ej. 23221036 o L23221036@puebla.tecnm.mx"
+                        placeholder="Ej. 23221036 o tu_correo@gmail.com"
                         className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white"
                       />
                     </div>
@@ -572,7 +549,7 @@
                       type="submit"
                       className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-extrabold text-white text-sm uppercase"
                     >
-                      Entrar a Mi Portafolio
+                      Entrar a Mi Cuenta
                     </button>
                   </form>
                 )}
@@ -580,18 +557,14 @@
             </section>
           )}
 
-          {/* 3. VISTA RETÍCULA OFICIAL EN 9 COLUMNAS */}
+          {/* 3. VISTA RETÍCULA */}
           {vistaActual === "reticula" && (
             <section className="max-w-[1600px] mx-auto px-4 py-6">
-              <div className="mb-4 bg-slate-900 p-4 rounded-xl border border-slate-800 flex justify-between items-center">
-                <div>
-                  <h2 className="text-lg font-extrabold text-white uppercase">
-                    Mapa Curricular Oficial ITIC-2010-225 (1° a 9° Semestre)
-                  </h2>
-                  <p className="text-xs text-slate-400">
-                    Selecciona cualquier materia para subir tus evidencias y que la IA actualice tu CV.
-                  </p>
-                </div>
+              <div className="mb-4 bg-slate-900 p-4 rounded-xl border border-slate-800">
+                <h2 className="text-lg font-extrabold text-white uppercase">
+                  Retícula Exclusiva de ITICs (ITIC-2010-225) - ITP
+                </h2>
+                <p className="text-xs text-slate-400">En futuras actualizaciones se abrirá para más carreras, por ahora enfocada en TICs.</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-9 gap-2.5 overflow-x-auto pb-6">
@@ -628,19 +601,12 @@
             </section>
           )}
 
-          {/* 4. SUBIR ARCHIVOS CON LECTURA AUTOMÁTICA DE INTELIGENCIA ARTIFICIAL */}
+          {/* 4. SUBIR ARCHIVOS CON IA */}
           {vistaActual === "subir" && (
             <section className="max-w-3xl mx-auto px-6 py-8">
               <div className="p-8 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
-                <span className="px-2.5 py-1 rounded bg-blue-950 text-blue-300 border border-blue-800 text-xs font-bold">
-                  Analizador de Evidencias con IA Activo
-                </span>
-                <h2 className="text-2xl font-extrabold text-white mt-2">
-                  Subir Proyecto / Documentos a tu Historial
-                </h2>
-                <p className="text-xs text-slate-400 mt-1 mb-6">
-                  Sube tus PDFs, ZIPs, videos o código. <strong>La Inteligencia Artificial leerá automáticamente tus archivos</strong> para detectar qué tecnologías ocupaste y redactar tu experiencia en el CV.
-                </p>
+                <h2 className="text-2xl font-extrabold text-white mt-2">Subir Evidencia Analizada por IA</h2>
+                <p className="text-xs text-slate-400 mt-1 mb-6">Sube PDFs, ZIPs, código o videos. La IA extraerá tu stack tecnológico.</p>
 
                 {alerta && (
                   <div className={`mb-6 p-4 rounded-xl border text-xs ${
@@ -649,11 +615,8 @@
                     <div className="font-bold text-sm">{alerta.msg}</div>
                     {alerta.detalleIA && <div className="mt-1 text-slate-300 italic">{alerta.detalleIA}</div>}
                     {alerta.tipo === "ok" && (
-                      <button
-                        onClick={() => setVistaActual("portafolio")}
-                        className="mt-3 px-4 py-1.5 rounded-lg bg-emerald-600 text-white font-bold"
-                      >
-                        Ver cómo quedó mi CV actualizado por la IA →
+                      <button onClick={() => setVistaActual("portafolio")} className="mt-3 px-4 py-1.5 rounded-lg bg-emerald-600 text-white font-bold">
+                        Ver Mi CV Actualizado →
                       </button>
                     )}
                   </div>
@@ -661,341 +624,159 @@
 
                 <form onSubmit={guardarEvidenciaConIA} className="space-y-4">
                   <div>
-                    <label className="block text-xs uppercase font-bold text-blue-400 mb-1">
-                      1. Materia de la Retícula *
-                    </label>
+                    <label className="block text-xs uppercase font-bold text-blue-400 mb-1">Materia de la Retícula *</label>
                     <select
                       value={materiaSeleccionada}
                       onChange={(e) => setMateriaSeleccionada(e.target.value)}
                       className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white"
                     >
                       {materias.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          [{m.semestre}° Semestre] {m.clave} - {m.nombre}
-                        </option>
+                        <option key={m.id} value={m.id}>[{m.semestre}° Semestre] {m.clave} - {m.nombre}</option>
                       ))}
                     </select>
                   </div>
-
                   <div>
-                    <label className="block text-xs uppercase font-bold text-blue-400 mb-1">
-                      2. Título del Proyecto o Práctica *
-                    </label>
+                    <label className="block text-xs uppercase font-bold text-blue-400 mb-1">Título del Proyecto *</label>
                     <input
                       type="text"
                       required
                       value={titulo}
                       onChange={(e) => setTitulo(e.target.value)}
-                      placeholder="Ej. Propuesta CommonKADS / Base de Datos SQL / Práctica de Redes"
+                      placeholder="Ej. Sistema de Control con FastAPI y React"
                       className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white"
                     />
                   </div>
-
                   <div>
-                    <label className="block text-xs uppercase font-semibold text-slate-400 mb-1">
-                      Explicación adicional (Opcional - La IA también leerá tus archivos)
-                    </label>
+                    <label className="block text-xs uppercase font-semibold text-slate-400 mb-1">Descripción (Opcional)</label>
                     <textarea
                       rows="2"
                       value={descripcion}
                       onChange={(e) => setDescripcion(e.target.value)}
-                      placeholder="Puedes escribir qué hiciste o dejar que la IA analice directamente tus PDFs y ZIPs..."
+                      placeholder="Notas adicionales..."
                       className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white"
                     />
                   </div>
-
-                  <div>
-                    <label className="block text-xs uppercase font-semibold text-slate-400 mb-1">
-                      Enlace a GitHub / Repositorio (Opcional)
-                    </label>
-                    <input
-                      type="url"
-                      value={urlExterna}
-                      onChange={(e) => setUrlExterna(e.target.value)}
-                      placeholder="https://github.com/..."
-                      className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white"
-                    />
-                  </div>
-
                   <div className="p-4 rounded-xl border-2 border-dashed border-blue-500/60 bg-slate-950">
-                    <label className="block text-xs font-bold uppercase text-emerald-400 mb-2">
-                      3. Selecciona tus Archivos (Varios PDFs, ZIPs, Videos MP4, Código, Imágenes)
-                    </label>
+                    <label className="block text-xs font-bold uppercase text-emerald-400 mb-2">Seleccionar Archivos (PDFs, ZIPs, Código, etc.)</label>
                     <input
                       type="file"
                       multiple
                       onChange={alSeleccionarArchivos}
                       className="w-full text-xs text-slate-300 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-600 file:text-white font-bold cursor-pointer"
                     />
-
                     {colaArchivos.length > 0 && (
                       <div className="mt-4 pt-3 border-t border-slate-800 space-y-1.5">
-                        <div className="text-xs font-bold text-amber-400">
-                          Archivos listos para análisis IA ({colaArchivos.length}):
-                        </div>
+                        <div className="text-xs font-bold text-amber-400">Archivos listos ({colaArchivos.length}):</div>
                         {colaArchivos.map((f, i) => (
                           <div key={i} className="flex justify-between items-center bg-slate-900 px-3 py-1.5 rounded-lg text-xs">
-                            <span className="truncate text-white">📄 {f.name} ({(f.size / 1024).toFixed(1)} KB)</span>
-                            <button
-                              type="button"
-                              onClick={() => setColaArchivos((prev) => prev.filter((_, idx) => idx !== i))}
-                              className="text-red-400 font-bold ml-2"
-                            >
-                              ✕
-                            </button>
+                            <span className="truncate text-white">📄 {f.name}</span>
+                            <button type="button" onClick={() => setColaArchivos((prev) => prev.filter((_, idx) => idx !== i))} className="text-red-400 font-bold ml-2">✕</button>
                           </div>
                         ))}
                       </div>
                     )}
                   </div>
-
-                  <button
-                    type="submit"
-                    disabled={subiendo}
-                    className="w-full py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-extrabold text-white text-sm uppercase tracking-wider shadow-lg transition cursor-pointer"
-                  >
-                    {subiendo
-                      ? "🤖 Analizando tus PDFs/Archivos con IA y guardando..."
-                      : `🤖 ANALIZAR CON IA Y GUARDAR EN MI CV (${colaArchivos.length} ARCHIVOS)`}
+                  <button type="submit" disabled={subiendo} className="w-full py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-extrabold text-white text-sm uppercase tracking-wider shadow-lg">
+                    {subiendo ? "🤖 Analizando y Guardando..." : `🤖 ANALIZAR CON IA Y GUARDAR (${colaArchivos.length} ARCHIVOS)`}
                   </button>
                 </form>
               </div>
             </section>
           )}
 
-          {/* 5. VISTA DE CURRÍCULUM VITAE GENERADO POR IA + HISTORIAL 1° A 9° SEMESTRE */}
+          {/* 5. VISTA CURRÍCULUM E HISTORIAL */}
           {vistaActual === "portafolio" && datosPortafolio && (
             <section className="max-w-7xl mx-auto px-6 py-8">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                
-                {/* COLUMNA IZQUIERDA: CV DEL ESTUDIANTE REGISTRADO */}
                 <aside className="lg:col-span-4 space-y-6">
                   <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
                     <div className="flex items-center gap-4 pb-5 border-b border-slate-800">
                       {datosPortafolio.estudiante.foto_url ? (
-                        <img
-                          src={`${API_BASE}${datosPortafolio.estudiante.foto_url}`}
-                          alt="Foto Perfil"
-                          className="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-400"
-                        />
+                        <img src={`${API_BASE}${datosPortafolio.estudiante.foto_url}`} className="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-400" />
                       ) : (
                         <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-emerald-500 flex items-center justify-center text-xl font-extrabold text-white">
                           {datosPortafolio.estudiante.nombre.slice(0, 2).toUpperCase()}
                         </div>
                       )}
                       <div>
-                        <span className="px-2 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-800 text-[10px] font-bold uppercase">
-                          Currículum Verificado con IA
-                        </span>
-                        <h2 className="text-xl font-extrabold text-white mt-1 leading-tight">
-                          {datosPortafolio.estudiante.nombre}
-                        </h2>
-                        <p className="text-xs text-emerald-400 font-semibold">
-                          {datosPortafolio.estudiante.es_itics ? "Ingeniería en TICs • ITP" : "Ingeniería • ITP"}
-                        </p>
+                        <span className="px-2 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-800 text-[10px] font-bold uppercase">ITICs - ITP</span>
+                        <h2 className="text-xl font-extrabold text-white mt-1 leading-tight">{datosPortafolio.estudiante.nombre}</h2>
+                        <p className="text-xs text-emerald-400 font-semibold">Ingeniería en TICs</p>
                       </div>
                     </div>
-
-                    {/* Perfil redactado por IA */}
                     <div className="py-4 border-b border-slate-800">
-                      <div className="text-[11px] font-bold uppercase text-blue-400 mb-1">
-                        🤖 Resumen Profesional Generado por IA
-                      </div>
-                      <p className="text-xs text-slate-300 leading-relaxed">
-                        {datosPortafolio.estudiante.perfil_ia}
-                      </p>
+                      <div className="text-[11px] font-bold uppercase text-blue-400 mb-1">🤖 Perfil Generado por IA</div>
+                      <p className="text-xs text-slate-300 leading-relaxed">{datosPortafolio.estudiante.perfil_ia}</p>
                     </div>
-
-                    {/* Datos del Alumno y Semestre Automático/Manual */}
                     <div className="py-4 border-b border-slate-800 space-y-2 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">No. de Control:</span>
-                        <span className="font-mono font-bold text-white">{datosPortafolio.estudiante.matricula}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Correo Institucional:</span>
-                        <span className="font-mono text-blue-300">{datosPortafolio.estudiante.correo}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Semestre Vigente:</span>
-                        <span className="font-extrabold text-emerald-400">{datosPortafolio.estudiante.semestre_actual}° Semestre</span>
-                      </div>
-                      <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-[11px] text-slate-300">
-                        <span className="font-bold text-amber-400 block">{datosPortafolio.estudiante.modo_semestre}:</span>
-                        {datosPortafolio.estudiante.explicacion_semestre}
-                      </div>
+                      <div className="flex justify-between"><span className="text-slate-400">No. de Control:</span><span className="font-mono font-bold text-white">{datosPortafolio.estudiante.matricula}</span></div>
+                      <div className="flex justify-between"><span className="text-slate-400">Correo Personal:</span><span className="font-mono text-blue-300">{datosPortafolio.estudiante.correo}</span></div>
+                      <div className="flex justify-between"><span className="text-slate-400">Semestre Vigente:</span><span className="font-extrabold text-emerald-400">{datosPortafolio.estudiante.semestre_actual}° Semestre</span></div>
                     </div>
-
-                    {/* STACK TECNOLÓGICO DETECTADO AUTOMÁTICAMENTE POR LA IA */}
                     <div className="py-4 border-b border-slate-800">
-                      <h3 className="text-xs font-bold uppercase text-emerald-400 mb-1">
-                        🤖 Stack Tecnológico Detectado por IA en tus Archivos
-                      </h3>
-                      <p className="text-[11px] text-slate-400 mb-3">
-                        Extraído automáticamente al inspeccionar tus PDFs, ZIPs, videos y códigos subidos:
-                      </p>
+                      <h3 className="text-xs font-bold uppercase text-emerald-400 mb-1">🤖 Stack Tecnológico (IA)</h3>
                       {datosPortafolio.metricas.stack_dominado.length === 0 ? (
-                        <div className="p-3 rounded-xl bg-slate-950 border border-dashed border-slate-800 text-xs text-slate-400">
-                          Aún no hay tecnologías detectadas. Sube un PDF, ZIP o código para que la IA lo examine.
-                        </div>
+                        <p className="text-xs text-slate-400">Sube archivos para que la IA detecte tus habilidades.</p>
                       ) : (
-                        <div className="flex flex-wrap gap-1.5">
-                          {datosPortafolio.metricas.stack_dominado.map((tech) => (
-                            <span
-                              key={tech}
-                              className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-950 text-blue-300 border border-blue-700"
-                            >
-                              ✓ {tech}
-                            </span>
-                          ))}
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {datosPortafolio.metricas.stack_dominado.map((t) => <span key={t} className="px-2 py-0.5 rounded bg-blue-950 text-blue-300 text-xs border border-blue-700">✓ {t}</span>)}
                         </div>
                       )}
                     </div>
-
                     <div className="pt-4 space-y-2 print:hidden">
-                      <button
-                        onClick={() => window.print()}
-                        className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase"
-                      >
-                        🖨️ Imprimir / Guardar CV en PDF
-                      </button>
-                      <button
-                        onClick={() => setVistaActual("subir")}
-                        className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs uppercase"
-                      >
-                        + Subir Más Archivos para Análisis IA
-                      </button>
+                      <button onClick={() => window.print()} className="w-full py-2.5 rounded-xl bg-blue-600 text-white font-bold text-xs uppercase">🖨️ Imprimir CV</button>
+                      <button onClick={() => setVistaActual("subir")} className="w-full py-2.5 rounded-xl bg-slate-800 text-slate-200 font-bold text-xs uppercase">+ Subir Evidencia</button>
                     </div>
                   </div>
                 </aside>
 
-                {/* COLUMNA DERECHA: HISTORIAL DE 1° A 9° SEMESTRE */}
                 <div className="lg:col-span-8 space-y-6">
-                  <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 flex flex-wrap justify-between items-center gap-4 print:hidden">
-                    <div>
-                      <h3 className="text-lg font-extrabold text-white">
-                        Historial Académico Semestral (1° a 9° Semestre)
-                      </h3>
-                      <p className="text-xs text-slate-400">
-                        Registro verificable de lo que has hecho a lo largo de cada semestre de tu carrera.
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      <select
-                        value={semestreActivoHistorial}
-                        onChange={(e) => setSemestreActivoHistorial(e.target.value)}
-                        className="p-2 rounded-lg bg-slate-950 border border-slate-700 text-xs font-bold text-white"
-                      >
-                        <option value="TODOS">Todos los semestres (1° a 9°)</option>
-                        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((s) => (
-                          <option key={s} value={s}>{s}° Semestre</option>
-                        ))}
-                      </select>
-
-                      <button
-                        onClick={() => setMostrarTodosLosSemestres(!mostrarTodosLosSemestres)}
-                        className="px-3 py-2 rounded-lg text-xs font-bold bg-slate-800 border border-slate-700 text-slate-200"
-                      >
-                        {mostrarTodosLosSemestres ? "Ver Solo Materias con Evidencia" : "Ver Toda la Retícula"}
-                      </button>
-                    </div>
+                  <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 flex justify-between items-center print:hidden">
+                    <h3 className="text-lg font-extrabold text-white">Historial Académico Semestral (1° a 9° Semestre)</h3>
+                    <select value={semestreActivoHistorial} onChange={(e) => setSemestreActivoHistorial(e.target.value)} className="p-2 rounded-lg bg-slate-950 border border-slate-700 text-xs font-bold text-white">
+                      <option value="TODOS">Todos los semestres</option>
+                      {[1,2,3,4,5,6,7,8,9].map(s => <option key={s} value={s}>{s}° Semestre</option>)}
+                    </select>
                   </div>
 
                   <div className="relative border-l-2 border-blue-600 ml-4 pl-6 space-y-8">
                     {construirHistorialPorSemestre().map((bloqueSem) => (
                       <div key={bloqueSem.semestre} className="relative">
-                        <div className={`absolute -left-[33px] top-1 w-4 h-4 rounded-full border-4 border-slate-950 ${
-                          bloqueSem.totalEvidenciasSemestre > 0 ? "bg-emerald-400" : "bg-slate-600"
-                        }`} />
-
+                        <div className={`absolute -left-[33px] top-1 w-4 h-4 rounded-full border-4 border-slate-950 ${bloqueSem.totalEvidenciasSemestre > 0 ? "bg-emerald-400" : "bg-slate-600"}`} />
                         <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 flex justify-between items-center mb-3">
-                          <span className="font-extrabold text-sm text-white">
-                            {bloqueSem.semestre}° Semestre
-                          </span>
-                          <span className="text-xs text-emerald-400 font-bold">
-                            {bloqueSem.totalEvidenciasSemestre} proyecto(s)
-                          </span>
+                          <span className="font-extrabold text-sm text-white">{bloqueSem.semestre}° Semestre</span>
+                          <span className="text-xs text-emerald-400 font-bold">{bloqueSem.totalEvidenciasSemestre} proyecto(s)</span>
                         </div>
-
                         <div className="space-y-3">
-                          {bloqueSem.materias
-                            .filter((m) => mostrarTodosLosSemestres || m.evidencias.length > 0)
-                            .map((mat) => (
-                              <div
-                                key={mat.id}
-                                className={`p-4 rounded-xl border ${
-                                  mat.evidencias.length > 0
-                                    ? "bg-slate-900 border-emerald-500/60"
-                                    : "bg-slate-900/40 border-slate-800"
-                                }`}
-                              >
-                                <div className="flex justify-between items-center">
-                                  <div>
-                                    <span className="font-mono text-xs text-blue-400 font-bold mr-2">{mat.clave}</span>
-                                    <span className="font-bold text-white text-sm">{mat.nombre}</span>
-                                  </div>
-                                  <button
-                                    onClick={() => { setMateriaSeleccionada(mat.id); setVistaActual("subir"); }}
-                                    className="px-2.5 py-1 rounded bg-slate-800 hover:bg-blue-600 text-xs font-bold print:hidden"
-                                  >
-                                    + Subir aquí
-                                  </button>
-                                </div>
-
-                                {mat.evidencias.length > 0 && (
-                                  <div className="mt-3 pt-3 border-t border-slate-800 space-y-3">
-                                    {mat.evidencias.map((ev) => (
-                                      <div key={ev.id} className="p-3.5 rounded-xl bg-slate-950 border border-slate-800">
-                                        <div className="flex justify-between">
-                                          <h5 className="font-bold text-white text-sm">{ev.titulo}</h5>
-                                          <span className="text-[11px] text-slate-400 font-mono">{ev.fecha}</span>
-                                        </div>
-
-                                        {ev.analisis_ia && (
-                                          <p className="text-xs text-emerald-300 mt-1.5 bg-emerald-950/40 p-2 rounded border border-emerald-800/50">
-                                            🤖 {ev.analisis_ia}
-                                          </p>
-                                        )}
-
-                                        {ev.tags_ia && ev.tags_ia.length > 0 && (
-                                          <div className="flex flex-wrap gap-1.5 mt-2">
-                                            {ev.tags_ia.map((t) => (
-                                              <span key={t} className="px-2 py-0.5 rounded bg-blue-950 text-blue-300 text-[10px] font-bold">
-                                                #{t}
-                                              </span>
-                                            ))}
-                                          </div>
-                                        )}
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
-                                          {ev.archivos.map((arch) => (
-                                            <div key={arch.id} className="p-2 rounded bg-slate-900 border border-slate-800 flex justify-between items-center text-xs">
-                                              <span className="truncate text-white">📎 {arch.nombre}</span>
-                                              <div className="flex gap-1 shrink-0 print:hidden">
-                                                <button
-                                                  onClick={() => previsualizarArchivo(arch)}
-                                                  className="px-2 py-1 rounded bg-blue-600 text-white font-bold"
-                                                >
-                                                  Abrir
-                                                </button>
-                                                <a
-                                                  href={`${API_BASE}${arch.url}`}
-                                                  download={arch.nombre}
-                                                  className="px-2 py-1 rounded bg-slate-800 text-slate-200 font-bold"
-                                                >
-                                                  ↓
-                                                </a>
-                                              </div>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
+                          {bloqueSem.materias.map((mat) => (
+                            <div key={mat.id} className={`p-4 rounded-xl border ${mat.evidencias.length > 0 ? "bg-slate-900 border-emerald-500/60" : "bg-slate-900/40 border-slate-800"}`}>
+                              <div className="flex justify-between items-center">
+                                <div><span className="font-mono text-xs text-blue-400 font-bold mr-2">{mat.clave}</span><span className="font-bold text-white text-sm">{mat.nombre}</span></div>
+                                <button onClick={() => { setMateriaSeleccionada(mat.id); setVistaActual("subir"); }} className="px-2.5 py-1 rounded bg-slate-800 text-xs font-bold print:hidden">+ Subir aquí</button>
                               </div>
-                            ))}
+                              {mat.evidencias.length > 0 && (
+                                <div className="mt-3 pt-3 border-t border-slate-800 space-y-3">
+                                  {mat.evidencias.map((ev) => (
+                                    <div key={ev.id} className="p-3.5 rounded-xl bg-slate-950 border border-slate-800">
+                                      <div className="flex justify-between"><h5 className="font-bold text-white text-sm">{ev.titulo}</h5><span className="text-[11px] text-slate-400 font-mono">{ev.fecha}</span></div>
+                                      {ev.analisis_ia && <p className="text-xs text-emerald-300 mt-1.5 bg-emerald-950/40 p-2 rounded border border-emerald-800/50">🤖 {ev.analisis_ia}</p>}
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
+                                        {ev.archivos.map((arch) => (
+                                          <div key={arch.id} className="p-2 rounded bg-slate-900 border border-slate-800 flex justify-between items-center text-xs">
+                                            <span className="truncate text-white">📎 {arch.nombre}</span>
+                                            <div className="flex gap-1 shrink-0 print:hidden">
+                                              <button onClick={() => previsualizarArchivo(arch)} className="px-2 py-1 rounded bg-blue-600 text-white font-bold">Abrir</button>
+                                              <a href={`${API_BASE}${arch.url}`} download={arch.nombre} className="px-2 py-1 rounded bg-slate-800 text-slate-200 font-bold">↓</a>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
                         </div>
                       </div>
                     ))}
@@ -1005,26 +786,20 @@
             </section>
           )}
 
-          {/* MODAL VISOR UNIVERSAL (PDFs, VIDEOS MP4, IMÁGENES Y CÓDIGO) */}
+          {/* VISOR MODAL */}
           {archivoEnVisor && (
             <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
               <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-5xl w-full p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h4 className="font-bold text-white">{archivoEnVisor.nombre}</h4>
-                  <button onClick={() => setArchivoEnVisor(null)} className="px-3 py-1 rounded bg-red-600 text-white text-xs font-bold">
-                    Cerrar ✕
-                  </button>
+                  <button onClick={() => setArchivoEnVisor(null)} className="px-3 py-1 rounded bg-red-600 text-white text-xs font-bold">Cerrar ✕</button>
                 </div>
                 {archivoEnVisor.tipo === "IMAGEN" ? (
                   <img src={`${API_BASE}${archivoEnVisor.url}`} className="max-h-[70vh] mx-auto rounded" />
                 ) : archivoEnVisor.tipo === "VIDEO" || archivoEnVisor.nombre.toLowerCase().endsWith(".mp4") ? (
-                  <video controls autoPlay className="max-h-[70vh] w-full rounded">
-                    <source src={`${API_BASE}${archivoEnVisor.url}`} />
-                  </video>
+                  <video controls autoPlay className="max-h-[70vh] w-full rounded"><source src={`${API_BASE}${archivoEnVisor.url}`} /></video>
                 ) : textoCodigoVisor ? (
-                  <pre className="bg-slate-950 text-emerald-300 p-4 rounded-xl text-xs font-mono overflow-auto max-h-[70vh]">
-                    {textoCodigoVisor}
-                  </pre>
+                  <pre className="bg-slate-950 text-emerald-300 p-4 rounded-xl text-xs font-mono overflow-auto max-h-[70vh]">{textoCodigoVisor}</pre>
                 ) : (
                   <iframe src={`${API_BASE}${archivoEnVisor.url}`} className="w-full h-[70vh] rounded-xl bg-white" />
                 )}
