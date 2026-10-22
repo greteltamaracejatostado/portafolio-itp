@@ -7,6 +7,9 @@ import zipfile
 import hashlib
 import mimetypes
 import random
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from datetime import datetime, date, timedelta
 from typing import Optional, List
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form
@@ -39,7 +42,7 @@ def preparar_reticula():
 
 preparar_reticula()
 
-app = FastAPI(title="CommonKADS - Portafolio Académico ITP con IA", version="6.0.0")
+app = FastAPI(title="CommonKADS - Portafolio Académico ITP con IA", version="7.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -63,6 +66,33 @@ def servir_frontend():
     if os.path.exists("index.html"):
         return FileResponse("index.html", headers={"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"})
     return {"mensaje": "Falta index.html"}
+
+# --- MOTOR DE CORREO REAL (GMAIL SMTP) ---
+def enviar_correo_real(destinatario: str, asunto: str, cuerpo: str):
+    remitente = os.getenv("SMTP_EMAIL")
+    password = os.getenv("SMTP_PASSWORD")
+
+    # Si no configuras las variables en Render, imprimirá el código en la consola para no romper el programa
+    if not remitente or not password:
+        print(f"\n[AVISO SMTP] El código para {destinatario} es:\n{cuerpo}\n")
+        return True
+
+    msg = MIMEMultipart()
+    msg['From'] = remitente
+    msg['To'] = destinatario
+    msg['Subject'] = asunto
+    msg.attach(MIMEText(cuerpo, 'plain'))
+
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(remitente, password)
+        server.send_message(msg)
+        server.quit()
+        return True
+    except Exception as e:
+        print(f"Error enviando correo SMTP: {e}")
+        return False
 
 def calcular_semestre_vigente(usuario: Usuario) -> dict:
     sem_base = usuario.semestre_base or 1
@@ -173,7 +203,7 @@ def clasificar_extension(filename: str) -> TipoEvidencia:
         return TipoEvidencia.VIDEO
     return TipoEvidencia.OTRO
 
-# --- ENDPOINTS DE AUTENTICACIÓN Y RECUPERACIÓN (FLUJO TIPO GOOGLE OTP) ---
+# --- ENDPOINTS DE AUTENTICACIÓN CON VERIFICACIÓN OBLIGATORIA TIPO GOOGLE ---
 @app.post("/api/auth/registro", status_code=201)
 async def registrar_estudiante(
     nombre_completo: str = Form(...),
@@ -211,6 +241,7 @@ async def registrar_estudiante(
             f.write(await foto.read())
         foto_ruta = f"/archivos/perfiles/{nombre_foto}"
 
+    codigo_activacion = str(random.randint(100000, 999999))
     carrera = db.query(Carrera).filter_by(clave_oficial="ITIC-2010-225").first()
     nuevo = Usuario(
         nombre_completo=nombre_completo.strip(),
@@ -223,36 +254,62 @@ async def registrar_estudiante(
         semestre_base=semestre_base,
         fecha_inicio_semestre=fecha_inicio_semestre if fecha_inicio_semestre else None,
         fecha_fin_semestre=fecha_fin_semestre if fecha_fin_semestre else None,
-        carrera_id=carrera.id if carrera else None
+        carrera_id=carrera.id if carrera else None,
+        cuenta_verificada=False,
+        codigo_recuperacion=codigo_activacion,
+        expiracion_codigo=datetime.utcnow() + timedelta(minutes=15)
     )
     db.add(nuevo)
     db.commit()
-    db.refresh(nuevo)
 
-    info_sem = calcular_semestre_vigente(nuevo)
+    # Enviar correo real (o imprimir en consola si no hay SMTP configurado)
+    cuerpo_correo = f"Hola {nuevo.nombre_completo},\n\nTu código de verificación de 6 dígitos es: {codigo_activacion}\n\nIngrésalo en la plataforma para activar tu cuenta de Portafolio ITP."
+    enviar_correo_real(nuevo.correo, "Código de Verificación - Portafolio ITP", cuerpo_correo)
+
+    return {"requiere_verificacion": True, "correo": nuevo.correo, "mensaje": "Te hemos enviado un código de 6 dígitos a tu correo."}
+
+@app.post("/api/auth/verificar-cuenta")
+def verificar_cuenta_nueva(correo: str = Form(...), codigo: str = Form(...), db: Session = Depends(get_db)):
+    usuario = db.query(Usuario).filter(Usuario.correo == correo.strip().lower()).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+    if usuario.codigo_recuperacion != codigo.strip():
+        raise HTTPException(status_code=400, detail="El código es incorrecto.")
+    if datetime.utcnow() > usuario.expiracion_codigo:
+        raise HTTPException(status_code=400, detail="El código expiró.")
+
+    usuario.cuenta_verificada = True
+    usuario.codigo_recuperacion = None
+    usuario.expiracion_codigo = None
+    db.commit()
+
+    info_sem = calcular_semestre_vigente(usuario)
     return {
-        "mensaje": "Cuenta creada exitosamente",
         "usuario": {
-            "id": nuevo.id, "nombre": nuevo.nombre_completo, "matricula": nuevo.matricula,
-            "correo": nuevo.correo, "foto_url": nuevo.foto_url, "es_itics": nuevo.es_itics,
+            "id": usuario.id, "nombre": usuario.nombre_completo, "matricula": usuario.matricula,
+            "correo": usuario.correo, "foto_url": usuario.foto_url, "es_itics": usuario.es_itics,
             "semestre_actual": info_sem["semestre_calculado"], "detalle_semestre": info_sem["explicacion"]
         }
     }
 
 @app.post("/api/auth/login")
-def login_estudiante(
-    identificador: str = Form(...),
-    password: str = Form(...),
-    db: Session = Depends(get_db)
-):
+def login_estudiante(identificador: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
     ident = identificador.strip()
-    usuario = db.query(Usuario).filter(
-        (Usuario.matricula == ident.upper()) | (Usuario.correo == ident.lower())
-    ).first()
+    usuario = db.query(Usuario).filter((Usuario.matricula == ident.upper()) | (Usuario.correo == ident.lower())).first()
     hash_ingresado = hashlib.sha256(password.encode()).hexdigest()
 
     if not usuario or usuario.password_hash != hash_ingresado:
         raise HTTPException(status_code=401, detail="Número de control/correo o contraseña incorrectos.")
+
+    if not usuario.cuenta_verificada:
+        # Re-enviar código si no verificó su cuenta
+        codigo_activacion = str(random.randint(100000, 999999))
+        usuario.codigo_recuperacion = codigo_activacion
+        usuario.expiracion_codigo = datetime.utcnow() + timedelta(minutes=15)
+        db.commit()
+        cuerpo_correo = f"Hola {usuario.nombre_completo},\n\nTu cuenta no ha sido activada. Tu código de verificación es: {codigo_activacion}"
+        enviar_correo_real(usuario.correo, "Activación de Cuenta - Portafolio ITP", cuerpo_correo)
+        return {"requiere_verificacion": True, "correo": usuario.correo, "mensaje": "Tu cuenta no está verificada. Te hemos enviado un nuevo código."}
 
     info_sem = calcular_semestre_vigente(usuario)
     return {
@@ -264,14 +321,9 @@ def login_estudiante(
     }
 
 @app.post("/api/auth/solicitar-codigo")
-def solicitar_codigo_recuperacion(
-    correo_o_matricula: str = Form(...),
-    db: Session = Depends(get_db)
-):
+def solicitar_codigo_recuperacion(correo_o_matricula: str = Form(...), db: Session = Depends(get_db)):
     ident = correo_o_matricula.strip()
-    usuario = db.query(Usuario).filter(
-        (Usuario.matricula == ident.upper()) | (Usuario.correo == ident.lower())
-    ).first()
+    usuario = db.query(Usuario).filter((Usuario.matricula == ident.upper()) | (Usuario.correo == ident.lower())).first()
     
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado en el sistema.")
@@ -281,74 +333,48 @@ def solicitar_codigo_recuperacion(
     usuario.expiracion_codigo = datetime.utcnow() + timedelta(minutes=15)
     db.commit()
     
-    return {
-        "mensaje": "Código generado exitosamente. (Para tu demo escolar, el código de verificación es: " + codigo + ")"
-    }
+    cuerpo_correo = f"Hola {usuario.nombre_completo},\n\nHemos recibido una solicitud para recuperar tu contraseña.\n\nTu código de recuperación es: {codigo}\n\nSi no fuiste tú, ignora este mensaje."
+    exito = enviar_correo_real(usuario.correo, "Recuperación de Contraseña - Portafolio ITP", cuerpo_correo)
+    
+    return {"mensaje": f"Se ha enviado un código de 6 dígitos a tu correo: {usuario.correo}"}
 
 @app.post("/api/auth/restablecer-password")
-def restablecer_password(
-    correo_o_matricula: str = Form(...),
-    codigo: str = Form(...),
-    nueva_password: str = Form(...),
-    db: Session = Depends(get_db)
-):
+def restablecer_password(correo_o_matricula: str = Form(...), codigo: str = Form(...), nueva_password: str = Form(...), db: Session = Depends(get_db)):
     ident = correo_o_matricula.strip()
-    usuario = db.query(Usuario).filter(
-        (Usuario.matricula == ident.upper()) | (Usuario.correo == ident.lower())
-    ).first()
-    
-    if not usuario:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
-        
+    usuario = db.query(Usuario).filter((Usuario.matricula == ident.upper()) | (Usuario.correo == ident.lower())).first()
+    if not usuario: raise HTTPException(status_code=404, detail="Usuario no encontrado.")
     if not usuario.codigo_recuperacion or usuario.codigo_recuperacion != codigo.strip():
         raise HTTPException(status_code=401, detail="El código de verificación es incorrecto.")
-        
     if not usuario.expiracion_codigo or datetime.utcnow() > usuario.expiracion_codigo:
-        raise HTTPException(status_code=401, detail="El código de verificación ha expirado. Solicita uno nuevo.")
+        raise HTTPException(status_code=401, detail="El código expiró.")
         
     usuario.password_hash = hashlib.sha256(nueva_password.encode()).hexdigest()
     usuario.codigo_recuperacion = None
     usuario.expiracion_codigo = None
+    usuario.cuenta_verificada = True # Por si acaso recuperó sin verificar
     db.commit()
-    
     return {"mensaje": "Contraseña actualizada exitosamente. Ya puedes iniciar sesión con tu nueva contraseña."}
 
-# --- ENDPOINTS RETÍCULA, SUBIDA Y CV ---
+# --- ENDPOINTS RETÍCULA, SUBIDA Y CV SE MANTIENEN IGUAL ---
 @app.get("/api/reticula/materias")
 def listar_materias(estudiante_id: Optional[int] = None, db: Session = Depends(get_db)):
     materias = db.query(Materia).order_by(Materia.semestre, Materia.id).all()
     conteo_evidencias = {}
     query_ev = db.query(Evidencia).filter(Evidencia.is_deleted == False)
-    if estudiante_id:
-        query_ev = query_ev.filter(Evidencia.estudiante_id == estudiante_id)
-    for ev in query_ev.all():
-        conteo_evidencias[ev.materia_id] = conteo_evidencias.get(ev.materia_id, 0) + 1
-
+    if estudiante_id: query_ev = query_ev.filter(Evidencia.estudiante_id == estudiante_id)
+    for ev in query_ev.all(): conteo_evidencias[ev.materia_id] = conteo_evidencias.get(ev.materia_id, 0) + 1
     return [{"id": m.id, "clave": m.clave, "nombre": m.nombre, "semestre": m.semestre, "satca": m.satca, "creditos": m.creditos, "tipo": m.tipo_asignatura, "total_evidencias": conteo_evidencias.get(m.id, 0)} for m in materias]
 
 @app.post("/api/evidencias/subir", status_code=201)
-async def subir_evidencia(
-    estudiante_id: int = Form(...),
-    titulo: str = Form(...),
-    descripcion: str = Form(""),
-    materia_id: int = Form(...),
-    url_enlace_externo: Optional[str] = Form(None),
-    archivos: List[UploadFile] = File(default=[]),
-    db: Session = Depends(get_db)
-):
+async def subir_evidencia(estudiante_id: int = Form(...), titulo: str = Form(...), descripcion: str = Form(""), materia_id: int = Form(...), url_enlace_externo: Optional[str] = Form(None), archivos: List[UploadFile] = File(default=[]), db: Session = Depends(get_db)):
     usuario = db.query(Usuario).filter(Usuario.id == estudiante_id).first()
     if not usuario: raise HTTPException(status_code=404, detail="Primero debes iniciar sesión.")
-
     materia = db.query(Materia).filter(Materia.id == materia_id).first()
     competencia = db.query(Competencia).filter(Competencia.materia_id == materia.id).first()
     archivos_validos = [a for a in archivos if a.filename]
     if not archivos_validos and not url_enlace_externo: raise HTTPException(status_code=400, detail="Adjunta al menos un archivo o enlace.")
 
-    nueva_evidencia = Evidencia(
-        titulo=titulo, descripcion=descripcion,
-        tipo=TipoEvidencia.MULTIPLE if len(archivos_validos) > 1 else (clasificar_extension(archivos_validos[0].filename) if archivos_validos else TipoEvidencia.ENLACE),
-        url_enlace_externo=url_enlace_externo, estudiante_id=usuario.id, materia_id=materia.id, competencia_id=competencia.id
-    )
+    nueva_evidencia = Evidencia(titulo=titulo, descripcion=descripcion, tipo=TipoEvidencia.MULTIPLE if len(archivos_validos) > 1 else (clasificar_extension(archivos_validos[0].filename) if archivos_validos else TipoEvidencia.ENLACE), url_enlace_externo=url_enlace_externo, estudiante_id=usuario.id, materia_id=materia.id, competencia_id=competencia.id)
     db.add(nueva_evidencia)
     db.flush()
 
@@ -370,11 +396,7 @@ async def subir_evidencia(
         texto_interno = extraer_texto_de_archivo(nombre_limpio, contenido)
         textos_para_ia.append(texto_interno)
         ruta_url = f"/archivos/{usuario.matricula}/materia_{materia.id}/evidencia_{nueva_evidencia.id}/{identificador_unico}"
-        
-        registro_archivo = ArchivoEvidencia(
-            evidencia_id=nueva_evidencia.id, nombre_original=nombre_limpio, ruta_servidor=ruta_url,
-            mime_type=mime_detectado, tipo_archivo=tipo_arch, tamano_bytes=tamano, sha256_hash=hash_sha256, resumen_extraido_ia=texto_interno[:300]
-        )
+        registro_archivo = ArchivoEvidencia(evidencia_id=nueva_evidencia.id, nombre_original=nombre_limpio, ruta_servidor=ruta_url, mime_type=mime_detectado, tipo_archivo=tipo_arch, tamano_bytes=tamano, sha256_hash=hash_sha256, resumen_extraido_ia=texto_interno[:300])
         db.add(registro_archivo)
         resumen_archivos_guardados.append({"nombre": nombre_limpio, "url": ruta_url, "sha256": hash_sha256})
 
@@ -425,3 +447,8 @@ def obtener_portafolio_curricular(estudiante_id: int, db: Session = Depends(get_
         "metricas": {"total_evidencias": len(evidencias), "total_archivos": total_archivos_subidos, "materias_con_evidencia": len(materias_ordenadas), "total_materias_reticula": total_materias_db, "porcentaje_reticula": round((len(materias_ordenadas) / total_materias_db) * 100, 1), "stack_dominado": sorted(list(stack_ia_global))},
         "portafolio_por_materia": materias_ordenadas
     }
+
+@app.get("/api/usuarios/directorio")
+def listar_todos_los_usuarios(db: Session = Depends(get_db)):
+    usuarios = db.query(Usuario).order_by(Usuario.fecha_registro.desc()).all()
+    return [{"id": u.id, "nombre": u.nombre_completo, "matricula": u.matricula, "correo": u.correo, "semestre": u.semestre_actual, "verificado": u.cuenta_verificada, "fecha_registro": u.fecha_registro.strftime("%Y-%m-%d %H:%M")} for u in usuarios]

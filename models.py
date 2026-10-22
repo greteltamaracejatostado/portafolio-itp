@@ -73,7 +73,8 @@ class Usuario(Base):
     correo = Column(String(120), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     
-    # NUEVO: Lógica de Recuperación Segura (OTP)
+    # SISTEMA DE VERIFICACIÓN TIPO GOOGLE
+    cuenta_verificada = Column(Boolean, default=False)
     codigo_recuperacion = Column(String(10), nullable=True)
     expiracion_codigo = Column(DateTime, nullable=True)
     
