@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Portafolio Académico ITP con Inteligencia Artificial</title>
+  <title>Portafolio Académico ITP - Seguridad 2FA e IA</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 <body class="bg-slate-950 text-slate-100">
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect } = React;
+    const { useState, useEffect, useRef } = React;
     const API_BASE = window.location.origin.includes("http") ? window.location.origin : "http://localhost:8000";
 
     function PortafolioITPApp() {
@@ -27,23 +27,31 @@
       const [vistaActual, setVistaActual] = useState(usuarioActivo ? "portafolio" : "inicio");
       const [materias, setMaterias] = useState([]);
 
-      // Estados de Registro e Inicio de Sesión
-      const [modoAuth, setModoAuth] = useState("registro"); // "registro" | "verificar_cuenta" | "login" | "solicitar_codigo" | "restablecer_password"
+      // Flujos de Autenticación: "registro" | "verificar_correo" | "login" | "recuperar_correo" | "recuperar_nueva_clave"
+      const [modoAuth, setModoAuth] = useState("registro");
       const [nombreReg, setNombreReg] = useState("");
       const [matriculaReg, setMatriculaReg] = useState("");
       const [correoReg, setCorreoReg] = useState("");
       const [passwordReg, setPasswordReg] = useState("");
-      const [codigoRecuperacionReg, setCodigoRecuperacionReg] = useState("");
-      const [esIticsReg, setEsIticsReg] = useState(true);
+      const [confirmarPasswordReg, setConfirmarPasswordReg] = useState("");
       const [modoSemestreReg, setModoSemestreReg] = useState("AUTOMATICO");
       const [semestreManualReg, setSemestreManualReg] = useState(1);
       const [fechaInicioReg, setFechaInicioReg] = useState("");
       const [fechaFinReg, setFechaFinReg] = useState("");
       const [fotoReg, setFotoReg] = useState(null);
-      const [errorAuth, setErrorAuth] = useState(null);
-      
-      const [correoVerificacion, setCorreoVerificacion] = useState("");
 
+      // Estado de Validación DNS MX en tiempo real del correo
+      const [estadoCorreoMX, setEstadoCorreoMX] = useState(null); // { valido: bool, texto: string }
+      const [validandoMX, setValidandoMX] = useState(false);
+
+      // Estados para Verificación de 2 Pasos (6 dígitos separados)
+      const [correoEnProceso, setCorreoEnProceso] = useState("");
+      const [digitosOTP, setDigitosOTP] = useState(["", "", "", "", "", ""]);
+      const [codigoDemoSandbox, setCodigoDemoSandbox] = useState(null);
+      const [errorAuth, setErrorAuth] = useState(null);
+      const inputsRef = useRef([]);
+
+      // Estados de Subida de Evidencias e IA
       const [materiaSeleccionada, setMateriaSeleccionada] = useState("");
       const [titulo, setTitulo] = useState("");
       const [descripcion, setDescripcion] = useState("");
@@ -52,8 +60,8 @@
       const [subiendo, setSubiendo] = useState(false);
       const [alerta, setAlerta] = useState(null);
 
+      // Estados de Portafolio / CV
       const [datosPortafolio, setDatosPortafolio] = useState(null);
-      const [mostrarTodosLosSemestres, setMostrarTodosLosSemestres] = useState(true);
       const [semestreActivoHistorial, setSemestreActivoHistorial] = useState("TODOS");
       const [archivoEnVisor, setArchivoEnVisor] = useState(null);
       const [textoCodigoVisor, setTextoCodigoVisor] = useState("");
@@ -69,32 +77,76 @@
               if (dataMat.length > 0 && !materiaSeleccionada) setMateriaSeleccionada(dataMat[0].id);
             }
           }
-
           if (userObj) {
             const rPort = await fetch(`${API_BASE}/api/portafolio/${userObj.id}`);
-            if (rPort.ok) {
-              const dataPort = await rPort.json();
-              setDatosPortafolio(dataPort);
-            }
+            if (rPort.ok) setDatosPortafolio(await rPort.json());
           }
         } catch (err) {
-          console.error("Error cargando datos:", err);
+          console.error(err);
         }
       };
 
-      useEffect(() => {
-        cargarDatosUsuario();
-      }, [usuarioActivo]);
+      useEffect(() => { cargarDatosUsuario(); }, [usuarioActivo]);
 
+      // Verificar en vivo si el correo electrónico existe en servidores DNS MX
+      const verificarCorreoEnTiempoReal = async (emailValor) => {
+        if (!emailValor || !emailValor.includes("@")) {
+          setEstadoCorreoMX(null);
+          return;
+        }
+        setValidandoMX(true);
+        const fd = new FormData();
+        fd.append("correo", emailValor);
+        try {
+          const res = await fetch(`${API_BASE}/api/auth/validar-correo`, { method: "POST", body: fd });
+          const data = await res.json();
+          if (res.ok) {
+            setEstadoCorreoMX({ valido: true, texto: data.mensaje });
+          } else {
+            setEstadoCorreoMX({ valido: false, texto: data.detail });
+          }
+        } catch {
+          setEstadoCorreoMX(null);
+        } finally {
+          setValidandoMX(false);
+        }
+      };
+
+      // Manejo de las 6 casillas del código de verificación
+      const cambiarDigitoOTP = (index, valor) => {
+        const soloNumero = valor.replace(/[^0-9]/g, "").slice(-1);
+        const nuevos = [...digitosOTP];
+        nuevos[index] = soloNumero;
+        setDigitosOTP(nuevos);
+        if (soloNumero && index < 5 && inputsRef.current[index + 1]) {
+          inputsRef.current[index + 1].focus();
+        }
+      };
+
+      const pegarCodigoCompleto = (e) => {
+        const pegado = e.clipboardData.getData("text").replace(/[^0-9]/g, "").slice(0, 6);
+        if (pegado.length > 0) {
+          const nuevos = ["", "", "", "", "", ""];
+          for (let i = 0; i < pegado.length; i++) nuevos[i] = pegado[i];
+          setDigitosOTP(nuevos);
+        }
+      };
+
+      // PASO 1 REGISTRO: Crear cuenta y disparar código de verificación al correo
       const manejarRegistro = async (e) => {
         e.preventDefault();
         setErrorAuth(null);
+        if (estadoCorreoMX && !estadoCorreoMX.valido) {
+          setErrorAuth({ tipo: "error", msg: estadoCorreoMX.texto });
+          return;
+        }
+
         const fd = new FormData();
-        fd.append("nombre_completo", nombreReg || "");
-        fd.append("matricula", matriculaReg || "");
-        fd.append("correo", correoReg || "");
-        fd.append("password", passwordReg || "");
-        fd.append("es_itics", esIticsReg);
+        fd.append("nombre_completo", nombreReg);
+        fd.append("matricula", matriculaReg);
+        fd.append("correo", correoReg);
+        fd.append("password", passwordReg);
+        fd.append("es_itics", true);
         fd.append("modo_semestre", modoSemestreReg);
         fd.append("semestre_base", semestreManualReg);
         if (modoSemestreReg === "AUTOMATICO" && fechaInicioReg && fechaFinReg) {
@@ -103,111 +155,138 @@
         }
         if (fotoReg) fd.append("foto", fotoReg);
 
-        try {
-          const res = await fetch(`${API_BASE}/api/auth/registro`, { method: "POST", body: fd });
-          const data = await res.json();
-          if (res.ok && data.requiere_verificacion) {
-            setErrorAuth("✅ " + data.mensaje);
-            setCorreoVerificacion(data.correo);
-            setModoAuth("verificar_cuenta");
-          } else {
-            setErrorAuth("❌ " + (data.detail || "Error al crear la cuenta."));
-          }
-        } catch (err) {
-          setErrorAuth("Error de conexión con el servidor.");
+        const res = await fetch(`${API_BASE}/api/auth/registro`, { method: "POST", body: fd });
+        const data = await res.json();
+        if (res.ok && data.requiere_verificacion) {
+          setCorreoEnProceso(data.correo);
+          setDigitosOTP(["", "", "", "", "", ""]);
+          setCodigoDemoSandbox(data.codigo_respaldo || null);
+          setErrorAuth({ tipo: "ok", msg: data.mensaje });
+          setModoAuth("verificar_correo");
+        } else {
+          setErrorAuth({ tipo: "error", msg: data.detail || "No se pudo crear la cuenta." });
         }
       };
 
-      const manejarVerificacionCuenta = async (e) => {
+      // PASO 2 REGISTRO: Confirmar el código de 6 dígitos enviado al correo
+      const manejarVerificarCorreo = async (e) => {
         e.preventDefault();
         setErrorAuth(null);
-        const fd = new FormData();
-        fd.append("correo", correoVerificacion);
-        fd.append("codigo", codigoRecuperacionReg);
+        const codigoUnido = digitosOTP.join("");
+        if (codigoUnido.length !== 6) {
+          setErrorAuth({ tipo: "error", msg: "Ingresa los 6 dígitos del código de verificación." });
+          return;
+        }
 
-        try {
-          const res = await fetch(`${API_BASE}/api/auth/verificar-cuenta`, { method: "POST", body: fd });
-          const data = await res.json();
-          if (res.ok && data.usuario) {
-            localStorage.setItem("itp_usuario_sesion", JSON.stringify(data.usuario));
-            setUsuarioActivo(data.usuario);
-            await cargarDatosUsuario(data.usuario);
-            setVistaActual("portafolio");
-          } else {
-            setErrorAuth("❌ " + (data.detail || "Código incorrecto."));
-          }
-        } catch (err) {
-          setErrorAuth("Error de conexión.");
+        const fd = new FormData();
+        fd.append("correo", correoEnProceso);
+        fd.append("codigo", codigoUnido);
+
+        const res = await fetch(`${API_BASE}/api/auth/verificar-correo`, { method: "POST", body: fd });
+        const data = await res.json();
+        if (res.ok && data.usuario) {
+          localStorage.setItem("itp_usuario_sesion", JSON.stringify(data.usuario));
+          setUsuarioActivo(data.usuario);
+          setCodigoDemoSandbox(null);
+          await cargarDatosUsuario(data.usuario);
+          setVistaActual("portafolio");
+        } else {
+          setErrorAuth({ tipo: "error", msg: data.detail || "Código inválido." });
         }
       };
 
+      const manejarReenviarCodigo = async (proposito = "VERIFICAR_CORREO") => {
+        setErrorAuth(null);
+        const fd = new FormData();
+        fd.append("correo", correoEnProceso);
+        fd.append("proposito", proposito);
+        const res = await fetch(`${API_BASE}/api/auth/reenviar-codigo`, { method: "POST", body: fd });
+        const data = await res.json();
+        if (res.ok) {
+          setDigitosOTP(["", "", "", "", "", ""]);
+          setCodigoDemoSandbox(data.codigo_respaldo || null);
+          setErrorAuth({ tipo: "ok", msg: data.mensaje });
+        } else {
+          setErrorAuth({ tipo: "error", msg: data.detail });
+        }
+      };
+
+      // LOGIN
       const manejarLogin = async (e) => {
         e.preventDefault();
         setErrorAuth(null);
         const fd = new FormData();
-        fd.append("identificador", matriculaReg || "");
-        fd.append("password", passwordReg || "");
+        fd.append("identificador", matriculaReg);
+        fd.append("password", passwordReg);
 
-        try {
-          const res = await fetch(`${API_BASE}/api/auth/login`, { method: "POST", body: fd });
-          const data = await res.json();
-          if (res.ok) {
-            if (data.requiere_verificacion) {
-              setCorreoVerificacion(data.correo);
-              setModoAuth("verificar_cuenta");
-              setErrorAuth("⚠️ " + data.mensaje);
-            } else if (data.usuario) {
-              localStorage.setItem("itp_usuario_sesion", JSON.stringify(data.usuario));
-              setUsuarioActivo(data.usuario);
-              await cargarDatosUsuario(data.usuario);
-              setVistaActual("portafolio");
-            }
-          } else {
-            setErrorAuth("❌ " + (data.detail || "Credenciales incorrectas."));
+        const res = await fetch(`${API_BASE}/api/auth/login`, { method: "POST", body: fd });
+        const data = await res.json();
+        if (res.ok) {
+          if (data.requiere_verificacion) {
+            setCorreoEnProceso(data.correo);
+            setDigitosOTP(["", "", "", "", "", ""]);
+            setCodigoDemoSandbox(data.codigo_respaldo || null);
+            setErrorAuth({ tipo: "info", msg: data.mensaje });
+            setModoAuth("verificar_correo");
+          } else if (data.usuario) {
+            localStorage.setItem("itp_usuario_sesion", JSON.stringify(data.usuario));
+            setUsuarioActivo(data.usuario);
+            await cargarDatosUsuario(data.usuario);
+            setVistaActual("portafolio");
           }
-        } catch (err) {
-          setErrorAuth("Error de conexión.");
+        } else {
+          setErrorAuth({ tipo: "error", msg: data.detail || "Credenciales incorrectas." });
         }
       };
 
-      const manejarSolicitarCodigo = async (e) => {
+      // RECUPERAR CONTRASEÑA PASO 1: Poner el correo con el que se registró
+      const manejarSolicitarRecuperacion = async (e) => {
         e.preventDefault();
         setErrorAuth(null);
         const fd = new FormData();
-        fd.append("correo_o_matricula", matriculaReg || "");
-        try {
-          const res = await fetch(`${API_BASE}/api/auth/solicitar-codigo`, { method: "POST", body: fd });
-          const data = await res.json();
-          if (res.ok) {
-            setErrorAuth("✅ " + data.mensaje);
-            setModoAuth("restablecer_password");
-          } else {
-            setErrorAuth("❌ " + (data.detail || "Error al solicitar código."));
-          }
-        } catch (err) {
-          setErrorAuth("Error de conexión.");
+        fd.append("correo", correoReg);
+
+        const res = await fetch(`${API_BASE}/api/auth/recuperar-solicitar`, { method: "POST", body: fd });
+        const data = await res.json();
+        if (res.ok) {
+          setCorreoEnProceso(data.correo);
+          setDigitosOTP(["", "", "", "", "", ""]);
+          setPasswordReg("");
+          setConfirmarPasswordReg("");
+          setCodigoDemoSandbox(data.codigo_respaldo || null);
+          setErrorAuth({ tipo: "ok", msg: data.mensaje });
+          setModoAuth("recuperar_nueva_clave");
+        } else {
+          setErrorAuth({ tipo: "error", msg: data.detail || "No encontramos ese correo." });
         }
       };
 
-      const manejarRestablecerPassword = async (e) => {
+      // RECUPERAR CONTRASEÑA PASO 2: Código de 6 dígitos + Nueva Contraseña
+      const manejarConfirmarNuevaPassword = async (e) => {
         e.preventDefault();
         setErrorAuth(null);
-        const fd = new FormData();
-        fd.append("correo_o_matricula", matriculaReg || "");
-        fd.append("codigo", codigoRecuperacionReg || "");
-        fd.append("nueva_password", passwordReg || "");
+        const codigoUnido = digitosOTP.join("");
+        if (codigoUnido.length !== 6) {
+          setErrorAuth({ tipo: "error", msg: "Ingresa los 6 dígitos del código de verificación." });
+          return;
+        }
 
-        try {
-          const res = await fetch(`${API_BASE}/api/auth/restablecer-password`, { method: "POST", body: fd });
-          const data = await res.json();
-          if (res.ok) {
-            setErrorAuth("✅ " + data.mensaje);
-            setTimeout(() => setModoAuth("login"), 4000);
-          } else {
-            setErrorAuth("❌ " + (data.detail || "El código es incorrecto o expiró."));
-          }
-        } catch (err) {
-          setErrorAuth("Error de conexión.");
+        const fd = new FormData();
+        fd.append("correo", correoEnProceso);
+        fd.append("codigo", codigoUnido);
+        fd.append("nueva_password", passwordReg);
+        fd.append("confirmar_password", confirmarPasswordReg);
+
+        const res = await fetch(`${API_BASE}/api/auth/recuperar-confirmar`, { method: "POST", body: fd });
+        const data = await res.json();
+        if (res.ok) {
+          setCodigoDemoSandbox(null);
+          setMatriculaReg(correoEnProceso);
+          setPasswordReg("");
+          setErrorAuth({ tipo: "ok", msg: data.mensaje });
+          setModoAuth("login");
+        } else {
+          setErrorAuth({ tipo: "error", msg: data.detail || "No se pudo cambiar la contraseña." });
         }
       };
 
@@ -218,43 +297,29 @@
         setVistaActual("inicio");
       };
 
-      const alSeleccionarArchivos = (e) => {
-        const seleccionados = Array.from(e.target.files);
-        if (seleccionados.length > 0) {
-          setColaArchivos((prev) => [...prev, ...seleccionados]);
-        }
-        e.target.value = null;
-      };
-
       const guardarEvidenciaConIA = async (e) => {
         e.preventDefault();
         if (!usuarioActivo) return;
         setSubiendo(true);
         setAlerta(null);
-
         const fd = new FormData();
         fd.append("estudiante_id", usuarioActivo.id);
-        fd.append("titulo", titulo || "");
-        fd.append("descripcion", descripcion || "");
+        fd.append("titulo", titulo);
+        fd.append("descripcion", descripcion);
         fd.append("materia_id", materiaSeleccionada);
         if (urlExterna.trim()) fd.append("url_enlace_externo", urlExterna.trim());
         colaArchivos.forEach((f) => fd.append("archivos", f));
 
-        try {
-          const res = await fetch(`${API_BASE}/api/evidencias/subir`, { method: "POST", body: fd });
-          const data = await res.json();
-          if (res.ok) {
-            setAlerta({ tipo: "ok", msg: data.mensaje, detalleIA: data.analisis_ia });
-            setTitulo(""); setDescripcion(""); setUrlExterna(""); setColaArchivos([]);
-            await cargarDatosUsuario();
-          } else {
-            setAlerta({ tipo: "error", msg: data.detail || "Error al subir." });
-          }
-        } catch (err) {
-          setAlerta({ tipo: "error", msg: "Error de conexión." });
-        } finally {
-          setSubiendo(false);
+        const res = await fetch(`${API_BASE}/api/evidencias/subir`, { method: "POST", body: fd });
+        const data = await res.json();
+        if (res.ok) {
+          setAlerta({ tipo: "ok", msg: data.mensaje, detalleIA: data.analisis_ia });
+          setTitulo(""); setDescripcion(""); setUrlExterna(""); setColaArchivos([]);
+          await cargarDatosUsuario();
+        } else {
+          setAlerta({ tipo: "error", msg: data.detail || "Error al subir." });
         }
+        setSubiendo(false);
       };
 
       const previsualizarArchivo = async (arch) => {
@@ -262,10 +327,8 @@
         setTextoCodigoVisor("");
         const n = (arch.nombre || "").toLowerCase();
         if (arch.tipo === "CODIGO" || n.endsWith(".txt") || n.endsWith(".md") || n.endsWith(".sql") || n.endsWith(".py") || n.endsWith(".kt")) {
-          try {
-            const res = await fetch(`${API_BASE}/api/archivos/leer-texto/${arch.id}`);
-            if (res.ok) setTextoCodigoVisor(await res.text());
-          } catch (err) {}
+          const res = await fetch(`${API_BASE}/api/archivos/leer-texto/${arch.id}`);
+          if (res.ok) setTextoCodigoVisor(await res.text());
         }
       };
 
@@ -273,9 +336,7 @@
         const mapaEvidenciasPorMateria = {};
         if (datosPortafolio && Array.isArray(datosPortafolio.portafolio_por_materia)) {
           datosPortafolio.portafolio_por_materia.forEach((bloque) => {
-            if (bloque && bloque.clave) {
-              mapaEvidenciasPorMateria[bloque.clave] = bloque.evidencias || [];
-            }
+            if (bloque && bloque.clave) mapaEvidenciasPorMateria[bloque.clave] = bloque.evidencias || [];
           });
         }
         return [1, 2, 3, 4, 5, 6, 7, 8, 9].map((numSem) => {
@@ -285,27 +346,19 @@
           }));
           const totalEvidenciasSemestre = materiasConHistorial.reduce((acc, m) => acc + (m.evidencias?.length || 0), 0);
           return { semestre: numSem, materias: materiasConHistorial, totalEvidenciasSemestre };
-        }).filter((s) => {
-          if (semestreActivoHistorial !== "TODOS" && s.semestre !== Number(semestreActivoHistorial)) return false;
-          if (!mostrarTodosLosSemestres && s.totalEvidenciasSemestre === 0) return false;
-          return true;
-        });
-      };
-
-      const cargarVistaCV = async () => {
-        await cargarDatosUsuario();
-        setVistaActual("portafolio");
+        }).filter((s) => semestreActivoHistorial === "TODOS" || s.semestre === Number(semestreActivoHistorial));
       };
 
       return (
         <div className="min-h-screen bg-slate-950 text-slate-100 font-sans">
+          {/* BARRA SUPERIOR */}
           <nav className="border-b border-slate-800 bg-slate-900 sticky top-0 z-40 print:hidden">
             <div className="max-w-7xl mx-auto px-6 py-4 flex flex-wrap justify-between items-center gap-4">
               <div className="flex items-center gap-3 cursor-pointer" onClick={() => setVistaActual("inicio")}>
                 <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-lg">ITP</div>
                 <div>
-                  <span className="font-bold text-white block leading-none">Portafolio Académico ITP con IA</span>
-                  <span className="text-xs text-blue-400">Ingeniería en TICs • Retícula ITIC-2010-225</span>
+                  <span className="font-bold text-white block leading-none">Portafolio Académico ITP</span>
+                  <span className="text-xs text-blue-400">Ingeniería en TICs • Seguridad 2FA Verificada</span>
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -314,140 +367,322 @@
                 {usuarioActivo ? (
                   <>
                     <button onClick={() => setVistaActual("subir")} className={`px-3.5 py-2 text-xs font-bold rounded-lg ${vistaActual === "subir" ? "bg-blue-600 text-white" : "bg-slate-800 hover:bg-slate-700"}`}>+ Subir Evidencia</button>
-                    <button onClick={cargarVistaCV} className={`px-3.5 py-2 text-xs font-bold rounded-lg ${vistaActual === "portafolio" ? "bg-emerald-600 text-white" : "bg-emerald-700 hover:bg-emerald-600 text-white"}`}>Mi CV</button>
-                    <button onClick={cerrarSesion} className="px-3 py-2 text-xs font-bold rounded-lg bg-red-950/70 text-red-300 border border-red-800 hover:bg-red-900">Salir</button>
+                    <button onClick={() => { cargarDatosUsuario(); setVistaActual("portafolio"); }} className={`px-3.5 py-2 text-xs font-bold rounded-lg ${vistaActual === "portafolio" ? "bg-emerald-600 text-white" : "bg-emerald-700 hover:bg-emerald-600 text-white"}`}>Mi CV</button>
+                    <button onClick={cerrarSesion} className="px-3 py-2 text-xs font-bold rounded-lg bg-red-950/70 text-red-300 border border-red-800">Salir</button>
                   </>
                 ) : (
                   <>
-                    <button onClick={() => { setModoAuth("login"); setVistaActual("auth"); }} className="px-4 py-2 text-xs font-bold rounded-lg bg-slate-800 hover:bg-slate-700">Iniciar Sesión</button>
-                    <button onClick={() => { setModoAuth("registro"); setVistaActual("auth"); }} className="px-4 py-2 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-500">Crear Cuenta</button>
+                    <button onClick={() => { setModoAuth("login"); setErrorAuth(null); setVistaActual("auth"); }} className="px-4 py-2 text-xs font-bold rounded-lg bg-slate-800 hover:bg-slate-700">Iniciar Sesión</button>
+                    <button onClick={() => { setModoAuth("registro"); setErrorAuth(null); setVistaActual("auth"); }} className="px-4 py-2 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-500">Crear Cuenta</button>
                   </>
                 )}
               </div>
             </div>
           </nav>
 
+          {/* 1. LANDING PAGE */}
           {vistaActual === "inicio" && (
             <main className="max-w-6xl mx-auto px-6 py-16 text-center">
-              <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-950 text-blue-300 border border-blue-800">ITP • CommonKADS + IA</span>
-              <h1 className="text-4xl md:text-6xl font-extrabold mt-6 text-white leading-tight">Tu Portafolio Académico y CV Técnico <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">Analizado por IA</span></h1>
-              <p className="mt-6 text-lg text-slate-300 max-w-4xl mx-auto">Crea tu cuenta de estudiante, sube tus evidencias y deja que la IA detecte tu stack tecnológico para armar tu Currículum Verificable de 1° a 9° semestre.</p>
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-950 text-blue-300 border border-blue-800">
+                Instituto Tecnológico de Puebla • Verificación en 2 Pasos + IA
+              </span>
+              <h1 className="text-4xl md:text-6xl font-extrabold mt-6 text-white leading-tight">
+                Plataforma de Portafolio Académico <span className="text-blue-400">ITICs</span>
+              </h1>
+              <p className="mt-6 text-lg text-slate-300 max-w-3xl mx-auto">
+                Crea tu cuenta estudiantil verificando tu correo electrónico real, sube tus evidencias por semestre y genera automáticamente tu Currículum Técnico analizado por Inteligencia Artificial.
+              </p>
               <div className="mt-10 flex justify-center gap-4">
                 {!usuarioActivo ? (
                   <>
-                    <button onClick={() => { setModoAuth("registro"); setVistaActual("auth"); }} className="px-8 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 font-extrabold text-white shadow-lg">Crear Cuenta Estudiantil →</button>
-                    <button onClick={() => { setModoAuth("login"); setVistaActual("auth"); }} className="px-8 py-4 rounded-xl bg-slate-800 hover:bg-slate-700 font-bold text-slate-200 border border-slate-700">Iniciar Sesión</button>
+                    <button onClick={() => { setModoAuth("registro"); setErrorAuth(null); setVistaActual("auth"); }} className="px-8 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 font-extrabold text-white shadow-lg">Crear Cuenta</button>
+                    <button onClick={() => { setModoAuth("login"); setErrorAuth(null); setVistaActual("auth"); }} className="px-8 py-4 rounded-xl bg-slate-800 hover:bg-slate-700 font-bold text-slate-200 border border-slate-700">Iniciar Sesión</button>
                   </>
                 ) : (
-                  <button onClick={cargarVistaCV} className="px-8 py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-extrabold text-white">Ir a Mi Currículum →</button>
+                  <button onClick={() => setVistaActual("portafolio")} className="px-8 py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-extrabold text-white">Ir a Mi Portafolio →</button>
                 )}
               </div>
             </main>
           )}
 
+          {/* 2. MÓDULO DE SEGURIDAD: CREAR CUENTA / VERIFICAR CORREO (2FA) / LOGIN / RECUPERAR CONTRASEÑA */}
           {vistaActual === "auth" && (
-            <section className="max-w-2xl mx-auto px-6 py-10">
+            <section className="max-w-xl mx-auto px-6 py-10">
               <div className="p-8 rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl">
-                <div className="flex gap-2 mb-6 p-1 bg-slate-950 rounded-xl border border-slate-800">
-                  <button onClick={() => { setModoAuth("registro"); setErrorAuth(null); }} className={`flex-1 py-2.5 rounded-lg text-xs font-extrabold transition ${modoAuth === "registro" ? "bg-blue-600 text-white" : "text-slate-400"}`}>Crear Cuenta</button>
-                  <button onClick={() => { setModoAuth("login"); setErrorAuth(null); }} className={`flex-1 py-2.5 rounded-lg text-xs font-extrabold transition ${modoAuth === "login" ? "bg-blue-600 text-white" : "text-slate-400"}`}>Iniciar Sesión</button>
-                </div>
-
-                {errorAuth && (
-                  <div className={`mb-4 p-3.5 rounded-xl border text-xs font-semibold ${errorAuth.includes('✅') ? 'bg-emerald-950 border-emerald-600 text-emerald-200' : 'bg-red-950 border-red-600 text-red-200'}`}>
-                    {errorAuth}
+                
+                {(modoAuth === "registro" || modoAuth === "login") && (
+                  <div className="flex gap-2 mb-6 p-1 bg-slate-950 rounded-xl border border-slate-800">
+                    <button onClick={() => { setModoAuth("registro"); setErrorAuth(null); }} className={`flex-1 py-2.5 rounded-lg text-xs font-extrabold transition ${modoAuth === "registro" ? "bg-blue-600 text-white" : "text-slate-400"}`}>Crear Cuenta</button>
+                    <button onClick={() => { setModoAuth("login"); setErrorAuth(null); }} className={`flex-1 py-2.5 rounded-lg text-xs font-extrabold transition ${modoAuth === "login" ? "bg-blue-600 text-white" : "text-slate-400"}`}>Iniciar Sesión</button>
                   </div>
                 )}
 
+                {errorAuth && (
+                  <div className={`mb-5 p-4 rounded-xl border text-xs font-semibold ${
+                    errorAuth.tipo === "ok" ? "bg-emerald-950/70 border-emerald-500 text-emerald-200" :
+                    errorAuth.tipo === "info" ? "bg-blue-950/70 border-blue-500 text-blue-200" :
+                    "bg-red-950/70 border-red-500 text-red-200"
+                  }`}>
+                    {errorAuth.msg}
+                  </div>
+                )}
+
+                {/* PANTALLA A: CREAR CUENTA CON VALIDACIÓN DNS MX EN TIEMPO REAL */}
                 {modoAuth === "registro" && (
                   <form onSubmit={manejarRegistro} className="space-y-4">
-                    <h2 className="text-xl font-extrabold text-white">Crear Cuenta de Estudiante</h2>
-                    <p className="text-xs text-slate-400 mb-4">Ingresa tus datos personales. Deberás verificar tu correo electrónico para activar la cuenta.</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div><label className="block text-xs font-bold text-blue-400 mb-1">Nombre Completo *</label><input required type="text" value={nombreReg} onChange={e => setNombreReg(e.target.value)} placeholder="Ej. Gretel Tamara Ceja Tostado" className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" /></div>
-                      <div><label className="block text-xs font-bold text-blue-400 mb-1">Número de Control *</label><input required type="text" value={matriculaReg} onChange={e => setMatriculaReg(e.target.value)} placeholder="Ej. 23221036" className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" /></div>
+                    <div>
+                      <h2 className="text-2xl font-extrabold text-white">Crear Cuenta</h2>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Validaremos que tu correo personal exista realmente y te enviaremos un código de 6 dígitos para verificar tu identidad.
+                      </p>
                     </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div><label className="block text-xs font-bold text-emerald-400 mb-1">Correo Personal (Válido) *</label><input required type="email" value={correoReg} onChange={e => setCorreoReg(e.target.value)} placeholder="tu_correo@gmail.com" className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" /></div>
-                      <div><label className="block text-xs font-bold text-blue-400 mb-1">Crear Contraseña *</label><input required type="password" value={passwordReg} onChange={e => setPasswordReg(e.target.value)} placeholder="Crea una contraseña segura" className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" /></div>
+                      <div>
+                        <label className="block text-xs font-bold text-blue-400 mb-1">Nombre Completo *</label>
+                        <input required type="text" value={nombreReg} onChange={e => setNombreReg(e.target.value)} placeholder="Nombre y Apellidos" className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-blue-400 mb-1">Número de Control *</label>
+                        <input required type="text" value={matriculaReg} onChange={e => setMatriculaReg(e.target.value)} placeholder="Ej. 23221036" className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white font-mono" />
+                      </div>
                     </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-emerald-400 mb-1">Correo Personal (Se verificará que exista) *</label>
+                      <input
+                        required
+                        type="email"
+                        value={correoReg}
+                        onChange={e => { setCorreoReg(e.target.value); setEstadoCorreoMX(null); }}
+                        onBlur={e => verificarCorreoEnTiempoReal(e.target.value)}
+                        placeholder="tu_correo_real@gmail.com"
+                        className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white font-mono"
+                      />
+                      {validandoMX && <p className="text-[11px] text-blue-400 mt-1">Comprobando servidores de correo DNS (MX)...</p>}
+                      {estadoCorreoMX && (
+                        <p className={`text-[11px] mt-1 font-semibold ${estadoCorreoMX.valido ? "text-emerald-400" : "text-red-400"}`}>
+                          {estadoCorreoMX.valido ? "✓ " : "✕ "}{estadoCorreoMX.texto}
+                        </p>
+                      )}
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div><label className="block text-xs font-bold text-blue-400 mb-1">Carrera *</label><select value={esIticsReg} onChange={e => setEsIticsReg(e.target.value === "true")} className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white"><option value="true">Ingeniería en TICs (ITIC-2010-225)</option></select></div>
-                      <div><label className="block text-xs font-bold text-emerald-400 mb-1">Foto de Perfil (Opcional)</label><input type="file" accept="image/*" onChange={e => setFotoReg(e.target.files[0])} className="w-full text-xs text-slate-300 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-blue-600 file:text-white cursor-pointer" /></div>
+                      <div>
+                        <label className="block text-xs font-bold text-blue-400 mb-1">Contraseña (Mín. 6 caracteres) *</label>
+                        <input required type="password" value={passwordReg} onChange={e => setPasswordReg(e.target.value)} placeholder="••••••••" className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-400 mb-1">Foto de Perfil (Opcional)</label>
+                        <input type="file" accept="image/*" onChange={e => setFotoReg(e.target.files[0])} className="w-full text-xs text-slate-300 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-slate-800 file:text-white cursor-pointer" />
+                      </div>
                     </div>
+
                     <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
-                      <label className="block text-xs font-extrabold uppercase text-amber-400">Control de Semestre</label>
-                      <div className="flex gap-3 text-xs">
-                        <label><input type="radio" checked={modoSemestreReg === "AUTOMATICO"} onChange={() => setModoSemestreReg("AUTOMATICO")} /> Automático por Fechas</label>
-                        <label><input type="radio" checked={modoSemestreReg === "MANUAL"} onChange={() => setModoSemestreReg("MANUAL")} /> Manual</label>
+                      <label className="block text-xs font-extrabold uppercase text-amber-400">Control de Semestre en Curso (ITICs)</label>
+                      <div className="flex gap-4 text-xs">
+                        <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" checked={modoSemestreReg === "AUTOMATICO"} onChange={() => setModoSemestreReg("AUTOMATICO")} /> Automático por Fechas</label>
+                        <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" checked={modoSemestreReg === "MANUAL"} onChange={() => setModoSemestreReg("MANUAL")} /> Manual</label>
                       </div>
                       <select value={semestreManualReg} onChange={e => setSemestreManualReg(Number(e.target.value))} className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm text-white">
-                        {[1,2,3,4,5,6,7,8,9].map(s => <option key={s} value={s}>{s}° Semestre en Curso</option>)}
+                        {[1,2,3,4,5,6,7,8,9].map(s => <option key={s} value={s}>{s}° Semestre</option>)}
                       </select>
                       {modoSemestreReg === "AUTOMATICO" && (
-                        <div className="grid grid-cols-2 gap-3 pt-2">
-                          <div><label className="block text-[11px] text-slate-400">Fecha de Inicio</label><input type="date" value={fechaInicioReg} onChange={e => setFechaInicioReg(e.target.value)} className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white" /></div>
-                          <div><label className="block text-[11px] text-slate-400">Fecha de Fin</label><input type="date" value={fechaFinReg} onChange={e => setFechaFinReg(e.target.value)} className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white" /></div>
+                        <div className="grid grid-cols-2 gap-3 pt-1">
+                          <div><label className="block text-[11px] text-slate-400">Inicio de Semestre</label><input type="date" value={fechaInicioReg} onChange={e => setFechaInicioReg(e.target.value)} className="w-full p-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white" /></div>
+                          <div><label className="block text-[11px] text-slate-400">Fin de Semestre</label><input type="date" value={fechaFinReg} onChange={e => setFechaFinReg(e.target.value)} className="w-full p-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white" /></div>
                         </div>
                       )}
                     </div>
-                    <button type="submit" className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 font-extrabold text-white text-sm">Registrarme</button>
+
+                    <button type="submit" className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 font-extrabold text-white text-sm shadow-lg">
+                      Crear Cuenta y Verificar Correo →
+                    </button>
                   </form>
                 )}
 
-                {modoAuth === "verificar_cuenta" && (
-                  <form onSubmit={manejarVerificacionCuenta} className="space-y-4">
-                    <h2 className="text-xl font-extrabold text-white">Verifica tu Correo Electrónico</h2>
-                    <p className="text-xs text-slate-400">Hemos enviado un código de 6 dígitos al correo <strong>{correoVerificacion}</strong>. (Nota: Para la demostración local, revisa la terminal de Python si no configuraste el SMTP de Gmail).</p>
-                    <div><label className="block text-xs font-bold text-emerald-400 mb-1">Código de Verificación (6 dígitos) *</label><input required type="text" value={codigoRecuperacionReg} onChange={e => setCodigoRecuperacionReg(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white text-center font-mono tracking-widest text-lg" placeholder="000000" maxLength="6" /></div>
-                    <button type="submit" className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-extrabold text-white text-sm">Activar Mi Cuenta</button>
+                {/* PANTALLA B: VERIFICAR CORREO ELECTRÓNICO (2FA CON 6 CASILLAS) */}
+                {modoAuth === "verificar_correo" && (
+                  <form onSubmit={manejarVerificarCorreo} className="space-y-6">
+                    <div className="text-center">
+                      <div className="w-14 h-14 rounded-2xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center mx-auto mb-3 text-2xl">
+                        ✉️
+                      </div>
+                      <h2 className="text-2xl font-extrabold text-white">Verificar correo electrónico</h2>
+                      <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+                        Por seguridad, ingresa el código de verificación de 6 dígitos que enviamos a:<br/>
+                        <span className="font-mono font-bold text-blue-400 text-sm">{correoEnProceso}</span>
+                      </p>
+                    </div>
+
+                    {codigoDemoSandbox && (
+                      <div className="p-3 rounded-xl bg-amber-950/70 border border-amber-500/60 text-amber-200 text-xs text-center">
+                        <span className="font-bold block">Modo Demostración Activo (Sin SMTP configurado en servidor):</span>
+                        Tu código de verificación generado es: <strong className="font-mono text-base text-white tracking-widest ml-1">{codigoDemoSandbox}</strong>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-slate-400 text-center mb-3">
+                        Código de verificación (6 dígitos)
+                      </label>
+                      <div className="flex justify-center gap-2" onPaste={pegarCodigoCompleto}>
+                        {digitosOTP.map((dig, idx) => (
+                          <input
+                            key={idx}
+                            ref={el => inputsRef.current[idx] = el}
+                            type="text"
+                            inputMode="numeric"
+                            maxLength="1"
+                            value={dig}
+                            onChange={e => cambiarDigitoOTP(idx, e.target.value)}
+                            className="w-12 h-14 rounded-xl bg-slate-950 border-2 border-slate-700 focus:border-blue-500 text-center text-2xl font-mono font-extrabold text-white outline-none"
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    <button type="submit" className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-extrabold text-white text-sm shadow-lg">
+                      Verificar Correo y Activar Cuenta
+                    </button>
+
+                    <div className="flex justify-between items-center text-xs pt-2 border-t border-slate-800">
+                      <button type="button" onClick={() => manejarReenviarCodigo("VERIFICAR_CORREO")} className="text-blue-400 font-bold hover:underline">
+                        Reenviar código nuevo
+                      </button>
+                      <button type="button" onClick={() => { setModoAuth("registro"); setErrorAuth(null); }} className="text-slate-400 hover:text-white">
+                        Cambiar correo electrónico
+                      </button>
+                    </div>
                   </form>
                 )}
 
+                {/* PANTALLA C: INICIAR SESIÓN */}
                 {modoAuth === "login" && (
                   <form onSubmit={manejarLogin} className="space-y-4">
-                    <h2 className="text-xl font-extrabold text-white">Iniciar Sesión</h2>
-                    <div><label className="block text-xs font-bold text-blue-400 mb-1">No. Control o Correo Personal *</label><input required type="text" value={matriculaReg} onChange={e => setMatriculaReg(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" /></div>
-                    <div><label className="block text-xs font-bold text-blue-400 mb-1">Contraseña *</label><input required type="password" value={passwordReg} onChange={e => setPasswordReg(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" /></div>
-                    <div className="text-right"><button type="button" onClick={() => { setModoAuth("solicitar_codigo"); setErrorAuth(null); setPasswordReg(""); }} className="text-xs text-emerald-400 font-bold hover:underline">¿Olvidaste tu contraseña?</button></div>
-                    <button type="submit" className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-extrabold text-white text-sm">Entrar a Mi Cuenta</button>
+                    <div>
+                      <h2 className="text-2xl font-extrabold text-white">Iniciar Sesión</h2>
+                      <p className="text-xs text-slate-400 mt-1">Ingresa con tu correo personal verificado o número de control.</p>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-blue-400 mb-1">Correo Personal o Número de Control *</label>
+                      <input required type="text" value={matriculaReg} onChange={e => setMatriculaReg(e.target.value)} placeholder="tu_correo@gmail.com o 23221036" className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" />
+                    </div>
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="block text-xs font-bold text-blue-400">Contraseña *</label>
+                        <button type="button" onClick={() => { setModoAuth("recuperar_correo"); setErrorAuth(null); }} className="text-xs text-emerald-400 font-bold hover:underline">
+                          ¿Olvidaste tu contraseña?
+                        </button>
+                      </div>
+                      <input required type="password" value={passwordReg} onChange={e => setPasswordReg(e.target.value)} placeholder="••••••••" className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" />
+                    </div>
+                    <button type="submit" className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 font-extrabold text-white text-sm">
+                      Entrar a Mi Cuenta
+                    </button>
                   </form>
                 )}
 
-                {modoAuth === "solicitar_codigo" && (
-                  <form onSubmit={manejarSolicitarCodigo} className="space-y-4">
-                    <h2 className="text-xl font-extrabold text-white">Recuperación de Cuenta (Paso 1)</h2>
-                    <p className="text-xs text-slate-400">Ingresa tu número de control o correo personal registrado. Te enviaremos un código de verificación de 6 dígitos para confirmar tu identidad.</p>
-                    <div><label className="block text-xs font-bold text-blue-400 mb-1">No. de Control o Correo *</label><input required type="text" value={matriculaReg} onChange={e => setMatriculaReg(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" /></div>
-                    <button type="submit" className="w-full py-3.5 rounded-xl bg-amber-600 hover:bg-amber-500 font-extrabold text-white text-sm">Enviar Código de Verificación</button>
-                    <div className="text-center mt-2"><button type="button" onClick={() => setModoAuth("login")} className="text-xs text-slate-400 hover:text-white">Volver al Inicio de Sesión</button></div>
+                {/* PANTALLA D: RECUPERAR CONTRASEÑA PASO 1 (ESCRIBIR EL CORREO CON EL QUE SE REGISTRÓ) */}
+                {modoAuth === "recuperar_correo" && (
+                  <form onSubmit={manejarSolicitarRecuperacion} className="space-y-4">
+                    <div>
+                      <h2 className="text-2xl font-extrabold text-white">Recuperar Contraseña</h2>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Escribe el correo electrónico con el que registraste tu cuenta. Te enviaremos un código de verificación de 6 dígitos para que puedas crear una nueva contraseña.
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-blue-400 mb-1">Correo Electrónico Registrado *</label>
+                      <input required type="email" value={correoReg} onChange={e => setCorreoReg(e.target.value)} placeholder="tu_correo@gmail.com" className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white font-mono" />
+                    </div>
+                    <button type="submit" className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 font-extrabold text-white text-sm">
+                      Enviar Código de Verificación
+                    </button>
+                    <div className="text-center pt-2">
+                      <button type="button" onClick={() => { setModoAuth("login"); setErrorAuth(null); }} className="text-xs text-slate-400 hover:text-white">
+                        ← Volver a Iniciar Sesión
+                      </button>
+                    </div>
                   </form>
                 )}
 
-                {modoAuth === "restablecer_password" && (
-                  <form onSubmit={manejarRestablecerPassword} className="space-y-4">
-                    <h2 className="text-xl font-extrabold text-white">Recuperación de Cuenta (Paso 2)</h2>
-                    <p className="text-xs text-slate-400">Ingresa el código que te enviamos al correo junto con tu nueva contraseña.</p>
-                    <div><label className="block text-xs font-bold text-amber-400 mb-1">Código de Verificación (6 dígitos) *</label><input required type="text" value={codigoRecuperacionReg} onChange={e => setCodigoRecuperacionReg(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white text-center font-mono tracking-widest text-lg" placeholder="000000" maxLength="6" /></div>
-                    <div className="pt-2 border-t border-slate-800"><label className="block text-xs font-bold text-emerald-400 mb-1">Escribe tu Nueva Contraseña *</label><input required type="password" value={passwordReg} onChange={e => setPasswordReg(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" /></div>
-                    <button type="submit" className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-extrabold text-white text-sm">Guardar Nueva Contraseña</button>
-                    <div className="text-center mt-2"><button type="button" onClick={() => setModoAuth("login")} className="text-xs text-slate-400 hover:text-white">Cancelar y volver</button></div>
+                {/* PANTALLA E: RECUPERAR CONTRASEÑA PASO 2 (PONER CÓDIGO DE 6 DÍGITOS + NUEVA CONTRASEÑA) */}
+                {modoAuth === "recuperar_nueva_clave" && (
+                  <form onSubmit={manejarConfirmarNuevaPassword} className="space-y-4">
+                    <div className="text-center">
+                      <h2 className="text-2xl font-extrabold text-white">Verificar y Crear Nueva Contraseña</h2>
+                      <p className="text-xs text-slate-300 mt-1">
+                        Ingresa el código enviado a <span className="font-mono text-blue-400 font-bold">{correoEnProceso}</span> y define tu nueva contraseña.
+                      </p>
+                    </div>
+
+                    {codigoDemoSandbox && (
+                      <div className="p-3 rounded-xl bg-amber-950/70 border border-amber-500/60 text-amber-200 text-xs text-center">
+                        <span className="font-bold block">Modo Demostración Activo:</span>
+                        Código de recuperación generado: <strong className="font-mono text-base text-white tracking-widest ml-1">{codigoDemoSandbox}</strong>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-slate-400 text-center mb-2">
+                        Código de Verificación (6 dígitos) *
+                      </label>
+                      <div className="flex justify-center gap-2" onPaste={pegarCodigoCompleto}>
+                        {digitosOTP.map((dig, idx) => (
+                          <input
+                            key={idx}
+                            ref={el => inputsRef.current[idx] = el}
+                            type="text"
+                            inputMode="numeric"
+                            maxLength="1"
+                            value={dig}
+                            onChange={e => cambiarDigitoOTP(idx, e.target.value)}
+                            className="w-11 h-12 rounded-xl bg-slate-950 border-2 border-slate-700 focus:border-blue-500 text-center text-xl font-mono font-extrabold text-white outline-none"
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-emerald-400 mb-1">Nueva Contraseña *</label>
+                      <input required type="password" value={passwordReg} onChange={e => setPasswordReg(e.target.value)} placeholder="Mínimo 6 caracteres" className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-emerald-400 mb-1">Confirmar Nueva Contraseña *</label>
+                      <input required type="password" value={confirmarPasswordReg} onChange={e => setConfirmarPasswordReg(e.target.value)} placeholder="Repite tu nueva contraseña" className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" />
+                    </div>
+
+                    <button type="submit" className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-extrabold text-white text-sm">
+                      Guardar Nueva Contraseña
+                    </button>
+
+                    <div className="flex justify-between text-xs pt-2 border-t border-slate-800">
+                      <button type="button" onClick={() => manejarReenviarCodigo("RECUPERAR_PASSWORD")} className="text-blue-400 font-bold hover:underline">
+                        Reenviar código
+                      </button>
+                      <button type="button" onClick={() => { setModoAuth("login"); setErrorAuth(null); }} className="text-slate-400 hover:text-white">
+                        Cancelar
+                      </button>
+                    </div>
                   </form>
                 )}
               </div>
             </section>
           )}
 
+          {/* 3. RETÍCULA */}
           {vistaActual === "reticula" && (
             <section className="max-w-[1600px] mx-auto px-4 py-6">
               <div className="mb-4 bg-slate-900 p-4 rounded-xl border border-slate-800">
-                <h2 className="text-lg font-extrabold text-white uppercase">Retícula Exclusiva de ITICs (ITIC-2010-225) - ITP</h2>
+                <h2 className="text-lg font-extrabold text-white uppercase">Retícula Oficial de ITICs (ITIC-2010-225) - ITP</h2>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-9 gap-2.5 overflow-x-auto pb-6">
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((sem) => (
                   <div key={sem} className="flex flex-col gap-2.5 min-w-[155px]">
                     <div className="bg-blue-950 border border-blue-700 text-blue-200 text-center py-2 rounded-lg font-extrabold text-xs uppercase">{sem}° Semestre</div>
-                    {materias.filter((m) => m.semestre === sem).map((m) => (
+                    {(materias || []).filter((m) => m.semestre === sem).map((m) => (
                       <div key={m.id} onClick={() => { setMateriaSeleccionada(m.id); setVistaActual(usuarioActivo ? "subir" : "auth"); }} className={`p-2.5 rounded-lg cursor-pointer transition flex flex-col justify-between min-h-[115px] ${m.total_evidencias > 0 ? "bg-emerald-950 border-2 border-emerald-400 text-white" : "bg-slate-900 border border-slate-700 hover:border-blue-400"}`}>
                         <div className="font-bold text-[11px] text-center leading-tight">{m.nombre}</div>
                         <div className="mt-2 pt-1.5 border-t border-white/10 text-[10px] flex justify-between font-mono"><span className="text-blue-300">{m.clave}</span><span>{m.total_evidencias > 0 ? `✓ ${m.total_evidencias}` : "+ Subir"}</span></div>
@@ -459,44 +694,59 @@
             </section>
           )}
 
+          {/* 4. SUBIR EVIDENCIAS */}
           {vistaActual === "subir" && (
             <section className="max-w-3xl mx-auto px-6 py-8">
               <div className="p-8 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
-                <span className="px-2.5 py-1 rounded bg-blue-950 text-blue-300 border border-blue-800 text-xs font-bold">Analizador con IA Activo</span>
+                <span className="px-2.5 py-1 rounded bg-blue-950 text-blue-300 border border-blue-800 text-xs font-bold">Analizador de Evidencias con IA</span>
                 <h2 className="text-2xl font-extrabold text-white mt-2">Subir Proyecto a tu Historial</h2>
                 <form onSubmit={guardarEvidenciaConIA} className="space-y-4 mt-6">
                   {alerta && <div className={`p-4 rounded-xl border text-xs ${alerta.tipo === "ok" ? "bg-emerald-950 border-emerald-500 text-emerald-200" : "bg-red-950 border-red-500 text-red-200"}`}><div className="font-bold text-sm">{alerta.msg}</div></div>}
                   <div><label className="block text-xs font-bold text-blue-400 mb-1">Materia *</label><select value={materiaSeleccionada} onChange={(e) => setMateriaSeleccionada(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white">{(materias || []).map((m) => (<option key={m.id} value={m.id}>[{m.semestre}° Semestre] {m.clave} - {m.nombre}</option>))}</select></div>
                   <div><label className="block text-xs font-bold text-blue-400 mb-1">Título del Proyecto *</label><input type="text" required value={titulo} onChange={(e) => setTitulo(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" /></div>
-                  <div className="p-4 rounded-xl border-2 border-dashed border-blue-500/60 bg-slate-950"><label className="block text-xs font-bold text-emerald-400 mb-2">Seleccionar Archivos</label><input type="file" multiple onChange={(e) => setColaArchivos([...colaArchivos, ...Array.from(e.target.files)])} className="w-full text-xs text-slate-300 file:bg-blue-600 file:text-white cursor-pointer" />
+                  <div><label className="block text-xs font-bold text-slate-400 mb-1">Descripción</label><textarea rows="2" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white" /></div>
+                  <div className="p-4 rounded-xl border-2 border-dashed border-blue-500/60 bg-slate-950"><label className="block text-xs font-bold text-emerald-400 mb-2">Seleccionar Archivos (PDFs, ZIPs, Videos, Código)</label><input type="file" multiple onChange={(e) => setColaArchivos([...colaArchivos, ...Array.from(e.target.files)])} className="w-full text-xs text-slate-300 file:bg-blue-600 file:text-white file:border-0 file:px-3 file:py-1.5 file:rounded-lg cursor-pointer" />
                     {colaArchivos.length > 0 && <div className="mt-4 pt-3 border-t border-slate-800 space-y-1.5">{colaArchivos.map((f, i) => (<div key={i} className="flex justify-between items-center bg-slate-900 px-3 py-1.5 rounded-lg text-xs"><span className="text-white">📄 {f.name}</span><button type="button" onClick={() => setColaArchivos(colaArchivos.filter((_, idx) => idx !== i))} className="text-red-400 font-bold ml-2">✕</button></div>))}</div>}
                   </div>
-                  <button type="submit" disabled={subiendo} className="w-full py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-extrabold text-white text-sm uppercase">{subiendo ? "🤖 Analizando..." : `🤖 ANALIZAR Y GUARDAR (${colaArchivos.length} ARCHIVOS)`}</button>
+                  <button type="submit" disabled={subiendo} className="w-full py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-extrabold text-white text-sm uppercase">{subiendo ? "Analizando con IA..." : `Analizar con IA y Guardar (${colaArchivos.length} Archivos)`}</button>
                 </form>
               </div>
             </section>
           )}
 
+          {/* 5. PORTAFOLIO Y CURRÍCULUM */}
           {vistaActual === "portafolio" && (
             <section className="max-w-7xl mx-auto px-6 py-8">
-              {!datosPortafolio ? <div className="text-center text-slate-400 p-10 font-bold">Cargando datos de tu currículum...</div> : (
+              {!datosPortafolio ? <div className="text-center text-slate-400 p-10 font-bold">Cargando tu portafolio...</div> : (
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                  <aside className="lg:col-span-4 space-y-6"><div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
-                    <div className="flex items-center gap-4 pb-5 border-b border-slate-800">{datosPortafolio.estudiante?.foto_url ? <img src={`${API_BASE}${datosPortafolio.estudiante.foto_url}`} className="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-400" /> : <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-emerald-500 flex items-center justify-center text-xl font-extrabold text-white">{(datosPortafolio.estudiante?.nombre || "U").slice(0, 2).toUpperCase()}</div>}<div><span className="px-2 py-0.5 rounded bg-blue-950 text-blue-300 text-[10px] font-bold uppercase">ITICs - ITP</span><h2 className="text-xl font-extrabold text-white mt-1 leading-tight">{datosPortafolio.estudiante?.nombre}</h2></div></div>
-                    <div className="py-4 border-b border-slate-800"><div className="text-[11px] font-bold text-blue-400 mb-1">🤖 Perfil Generado por IA</div><p className="text-xs text-slate-300">{datosPortafolio.estudiante?.perfil_ia}</p></div>
-                    <div className="py-4 border-b border-slate-800 space-y-2 text-xs"><div className="flex justify-between"><span className="text-slate-400">No. Control:</span><span className="font-mono font-bold text-white">{datosPortafolio.estudiante?.matricula}</span></div><div className="flex justify-between"><span className="text-slate-400">Correo Personal:</span><span className="font-mono text-blue-300">{datosPortafolio.estudiante?.correo}</span></div><div className="flex justify-between"><span className="text-slate-400">Semestre Vigente:</span><span className="font-extrabold text-emerald-400">{datosPortafolio.estudiante?.semestre_actual}° Semestre</span></div></div>
-                    <div className="py-4 border-b border-slate-800"><h3 className="text-xs font-bold text-emerald-400 mb-1">🤖 Stack Tecnológico (IA)</h3>{(datosPortafolio.metricas?.stack_dominado || []).length > 0 ? <div className="flex flex-wrap gap-1.5 mt-2">{(datosPortafolio.metricas.stack_dominado || []).map((t) => <span key={t} className="px-2 py-0.5 rounded bg-blue-950 text-blue-300 text-xs border border-blue-700">✓ {t}</span>)}</div> : <p className="text-xs text-slate-400">Sube archivos para que la IA detecte habilidades.</p>}</div>
-                    <div className="pt-4 space-y-2 print:hidden"><button onClick={() => window.print()} className="w-full py-2.5 rounded-xl bg-blue-600 text-white font-bold text-xs uppercase">🖨️ Imprimir CV</button><button onClick={() => setVistaActual("subir")} className="w-full py-2.5 rounded-xl bg-slate-800 text-slate-200 font-bold text-xs uppercase">+ Subir Evidencia</button></div>
-                  </div></aside>
-                  <div className="lg:col-span-8 space-y-6"><div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 flex justify-between items-center"><h3 className="text-lg font-extrabold text-white">Historial Académico Semestral</h3><select value={semestreActivoHistorial} onChange={(e) => setSemestreActivoHistorial(e.target.value)} className="p-2 rounded-lg bg-slate-950 border border-slate-700 text-xs font-bold text-white"><option value="TODOS">Todos los semestres</option>{[1,2,3,4,5,6,7,8,9].map(s => <option key={s} value={s}>{s}° Semestre</option>)}</select></div>
+                  <aside className="lg:col-span-4 space-y-6">
+                    <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
+                      <div className="flex items-center gap-4 pb-5 border-b border-slate-800">
+                        {datosPortafolio.estudiante?.foto_url ? <img src={`${API_BASE}${datosPortafolio.estudiante.foto_url}`} className="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-400" /> : <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-emerald-500 flex items-center justify-center text-xl font-extrabold text-white">{(datosPortafolio.estudiante?.nombre || "U").slice(0, 2).toUpperCase()}</div>}
+                        <div>
+                          <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700 text-[10px] font-bold uppercase">✓ Correo Verificado</span>
+                          <h2 className="text-xl font-extrabold text-white mt-1 leading-tight">{datosPortafolio.estudiante?.nombre}</h2>
+                        </div>
+                      </div>
+                      <div className="py-4 border-b border-slate-800"><div className="text-[11px] font-bold text-blue-400 mb-1">Resumen Profesional IA</div><p className="text-xs text-slate-300">{datosPortafolio.estudiante?.perfil_ia}</p></div>
+                      <div className="py-4 border-b border-slate-800 space-y-2 text-xs">
+                        <div className="flex justify-between"><span className="text-slate-400">No. Control:</span><span className="font-mono font-bold text-white">{datosPortafolio.estudiante?.matricula}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-400">Correo Verificado:</span><span className="font-mono text-emerald-400">{datosPortafolio.estudiante?.correo}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-400">Semestre Vigente:</span><span className="font-extrabold text-white">{datosPortafolio.estudiante?.semestre_actual}° Semestre</span></div>
+                      </div>
+                      <div className="py-4 border-b border-slate-800"><h3 className="text-xs font-bold text-emerald-400 mb-1">Stack Tecnológico Detectado por IA</h3>{(datosPortafolio.metricas?.stack_dominado || []).length > 0 ? <div className="flex flex-wrap gap-1.5 mt-2">{(datosPortafolio.metricas.stack_dominado || []).map((t) => <span key={t} className="px-2 py-0.5 rounded bg-blue-950 text-blue-300 text-xs border border-blue-700">✓ {t}</span>)}</div> : <p className="text-xs text-slate-400">Sube archivos para que la IA detecte habilidades.</p>}</div>
+                      <div className="pt-4 space-y-2 print:hidden"><button onClick={() => window.print()} className="w-full py-2.5 rounded-xl bg-blue-600 text-white font-bold text-xs uppercase">Imprimir CV</button><button onClick={() => setVistaActual("subir")} className="w-full py-2.5 rounded-xl bg-slate-800 text-slate-200 font-bold text-xs uppercase">+ Subir Evidencia</button></div>
+                    </div>
+                  </aside>
+                  <div className="lg:col-span-8 space-y-6">
+                    <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 flex justify-between items-center"><h3 className="text-lg font-extrabold text-white">Historial Académico Semestral (1° a 9°)</h3><select value={semestreActivoHistorial} onChange={(e) => setSemestreActivoHistorial(e.target.value)} className="p-2 rounded-lg bg-slate-950 border border-slate-700 text-xs font-bold text-white"><option value="TODOS">Todos los semestres</option>{[1,2,3,4,5,6,7,8,9].map(s => <option key={s} value={s}>{s}° Semestre</option>)}</select></div>
                     <div className="relative border-l-2 border-blue-600 ml-4 pl-6 space-y-8">
                       {construirHistorialPorSemestre().map((b) => (
                         <div key={b.semestre} className="relative"><div className={`absolute -left-[33px] top-1 w-4 h-4 rounded-full border-4 border-slate-950 ${b.totalEvidenciasSemestre > 0 ? "bg-emerald-400" : "bg-slate-600"}`} /><div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 flex justify-between mb-3"><span className="font-extrabold text-sm text-white">{b.semestre}° Semestre</span><span className="text-xs text-emerald-400 font-bold">{b.totalEvidenciasSemestre} proyecto(s)</span></div>
                           <div className="space-y-3">
                             {b.materias.map((mat) => (
-                              <div key={mat.id} className={`p-4 rounded-xl border ${mat.evidencias.length > 0 ? "bg-slate-900 border-emerald-500/60" : "bg-slate-900/40 border-slate-800"}`}>
-                                <div className="flex justify-between items-center"><div><span className="font-mono text-xs text-blue-400 font-bold mr-2">{mat.clave}</span><span className="font-bold text-white text-sm">{mat.nombre}</span></div><button onClick={() => { setMateriaSeleccionada(mat.id); setVistaActual("subir"); }} className="px-2.5 py-1 rounded bg-slate-800 text-xs font-bold">+ Subir</button></div>
-                                {mat.evidencias.length > 0 && <div className="mt-3 pt-3 border-t border-slate-800 space-y-3">{mat.evidencias.map((ev) => (<div key={ev.id} className="p-3.5 rounded-xl bg-slate-950 border border-slate-800"><div className="flex justify-between"><h5 className="font-bold text-white text-sm">{ev.titulo}</h5><span className="text-[11px] text-slate-400 font-mono">{ev.fecha}</span></div>{ev.analisis_ia && <p className="text-xs text-emerald-300 mt-1.5 bg-emerald-950/40 p-2 rounded border border-emerald-800/50">🤖 {ev.analisis_ia}</p>}
+                              <div key={mat.id} className={`p-4 rounded-xl border ${mat.evidencias.length > 0 ? "bg-slate-900 border-emerald-500/60" : "bg-slate-900/40 border-slate-800"}`}><div className="flex justify-between items-center"><div><span className="font-mono text-xs text-blue-400 font-bold mr-2">{mat.clave}</span><span className="font-bold text-white text-sm">{mat.nombre}</span></div><button onClick={() => { setMateriaSeleccionada(mat.id); setVistaActual("subir"); }} className="px-2.5 py-1 rounded bg-slate-800 text-xs font-bold">+ Subir</button></div>
+                                {mat.evidencias.length > 0 && <div className="mt-3 pt-3 border-t border-slate-800 space-y-3">{mat.evidencias.map((ev) => (<div key={ev.id} className="p-3.5 rounded-xl bg-slate-950 border border-slate-800"><div className="flex justify-between"><h5 className="font-bold text-white text-sm">{ev.titulo}</h5><span className="text-[11px] text-slate-400 font-mono">{ev.fecha}</span></div>{ev.analisis_ia && <p className="text-xs text-emerald-300 mt-1.5 bg-emerald-950/40 p-2 rounded border border-emerald-800/50">{ev.analisis_ia}</p>}
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">{(ev.archivos || []).map((arch) => (<div key={arch.id} className="p-2 rounded bg-slate-900 border border-slate-800 flex justify-between items-center text-xs"><span className="truncate text-white">📎 {arch.nombre}</span><div className="flex gap-1 shrink-0"><button onClick={() => previsualizarArchivo(arch)} className="px-2 py-1 rounded bg-blue-600 text-white font-bold">Abrir</button><a href={`${API_BASE}${arch.url}`} download={arch.nombre} className="px-2 py-1 rounded bg-slate-800 text-white font-bold">↓</a></div></div>))}</div></div>))}</div>}
                               </div>
                             ))}

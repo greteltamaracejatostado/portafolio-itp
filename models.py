@@ -73,10 +73,12 @@ class Usuario(Base):
     correo = Column(String(120), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     
-    # SISTEMA DE VERIFICACIÓN TIPO GOOGLE
-    cuenta_verificada = Column(Boolean, default=False)
-    codigo_recuperacion = Column(String(10), nullable=True)
-    expiracion_codigo = Column(DateTime, nullable=True)
+    # SEGURIDAD Y VERIFICACIÓN EN DOS PASOS (2FA / OTP)
+    cuenta_verificada = Column(Boolean, default=False, nullable=False)
+    otp_hash = Column(String(255), nullable=True)
+    otp_expiracion = Column(DateTime, nullable=True)
+    otp_proposito = Column(String(30), nullable=True) # "VERIFICAR_CORREO" | "RECUPERAR_PASSWORD"
+    otp_intentos = Column(Integer, default=0)
     
     foto_url = Column(String(500), nullable=True)
     es_itics = Column(Boolean, default=True)
