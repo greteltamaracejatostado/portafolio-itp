@@ -3,11 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Portafolio Académico ITP - Seguridad 2FA e IA</title>
+  <title>Portafolio Académico ITP - Plataforma Oficial ITICs</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 <body class="bg-slate-950 text-slate-100">
   <div id="root"></div>
@@ -40,15 +41,15 @@
       const [fechaFinReg, setFechaFinReg] = useState("");
       const [fotoReg, setFotoReg] = useState(null);
 
-      // Estado de Validación DNS MX en tiempo real del correo
-      const [estadoCorreoMX, setEstadoCorreoMX] = useState(null); // { valido: bool, texto: string }
+      // Validación directa con la API oficial de Google Public DNS (Nunca da 404 Not Found)
+      const [estadoCorreoMX, setEstadoCorreoMX] = useState(null);
       const [validandoMX, setValidandoMX] = useState(false);
 
-      // Estados para Verificación de 2 Pasos (6 dígitos separados)
+      // Estados para Verificación de 2 Pasos (6 dígitos)
       const [correoEnProceso, setCorreoEnProceso] = useState("");
       const [digitosOTP, setDigitosOTP] = useState(["", "", "", "", "", ""]);
-      const [codigoDemoSandbox, setCodigoDemoSandbox] = useState(null);
       const [errorAuth, setErrorAuth] = useState(null);
+      const [procesandoAuth, setProcesandoAuth] = useState(false);
       const inputsRef = useRef([]);
 
       // Estados de Subida de Evidencias e IA
@@ -88,31 +89,60 @@
 
       useEffect(() => { cargarDatosUsuario(); }, [usuarioActivo]);
 
-      // Verificar en vivo si el correo electrónico existe en servidores DNS MX
-      const verificarCorreoEnTiempoReal = async (emailValor) => {
-        if (!emailValor || !emailValor.includes("@")) {
+      // Verificación en vivo usando directamente Google Public DNS (https://dns.google/resolve)
+      const verificarCorreoConGoogleDNS = async (emailValor) => {
+        const limpio = (emailValor || "").trim().toLowerCase();
+        if (!limpio) {
           setEstadoCorreoMX(null);
-          return;
+          return false;
         }
+        const regexEmail = /^[a-zA-Z0-9][a-zA-Z0-9_.+-]{1,62}@[a-zA-Z0-9-]+\.[a-zA-Z]{2,}$/;
+        if (!regexEmail.test(limpio)) {
+          setEstadoCorreoMX({ valido: false, texto: "Ingresa un formato de correo electrónico válido (ejemplo: usuario@gmail.com)." });
+          return false;
+        }
+
+        const [userPart, dominio] = limpio.split("@");
+        const typos = { "gmal.com": "gmail.com", "gamil.com": "gmail.com", "gmial.com": "gmail.com", "hotmal.com": "hotmail.com", "outlok.com": "outlook.com" };
+        if (typos[dominio]) {
+          setEstadoCorreoMX({ valido: false, texto: `El dominio parece mal escrito. ¿Quisiste decir ${userPart}@${typos[dominio]}?` });
+          return false;
+        }
+
+        const bloqueados = ["tail.com", "test.com", "example.com", "mailinator.com", "tempmail.com", "yopmail.com", "fake.com"];
+        if (bloqueados.includes(dominio)) {
+          setEstadoCorreoMX({ valido: false, texto: `El dominio @${dominio} no es un correo válido. Usa una cuenta real (Gmail, Outlook, iCloud, institucional).` });
+          return false;
+        }
+
         setValidandoMX(true);
-        const fd = new FormData();
-        fd.append("correo", emailValor);
         try {
-          const res = await fetch(`${API_BASE}/api/auth/validar-correo`, { method: "POST", body: fd });
-          const data = await res.json();
-          if (res.ok) {
-            setEstadoCorreoMX({ valido: true, texto: data.mensaje });
+          const resp = await fetch(`https://dns.google/resolve?name=${encodeURIComponent(dominio)}&type=MX`);
+          const data = await resp.json();
+          if (data.Status === 0 && Array.isArray(data.Answer) && data.Answer.length > 0) {
+            setEstadoCorreoMX({
+              valido: true,
+              texto: `Correo válido verificado (${dominio}). Al crear tu cuenta se enviará un correo con tu código de verificación.`
+            });
+            return true;
           } else {
-            setEstadoCorreoMX({ valido: false, texto: data.detail });
+            setEstadoCorreoMX({
+              valido: false,
+              texto: `El dominio @${dominio} no existe o no tiene servidores de correo activos.`
+            });
+            return false;
           }
         } catch {
-          setEstadoCorreoMX(null);
+          setEstadoCorreoMX({
+            valido: true,
+            texto: "Formato de correo válido. Se enviará un correo de verificación para confirmar tu cuenta."
+          });
+          return true;
         } finally {
           setValidandoMX(false);
         }
       };
 
-      // Manejo de las 6 casillas del código de verificación
       const cambiarDigitoOTP = (index, valor) => {
         const soloNumero = valor.replace(/[^0-9]/g, "").slice(-1);
         const nuevos = [...digitosOTP];
@@ -132,19 +162,22 @@
         }
       };
 
-      // PASO 1 REGISTRO: Crear cuenta y disparar código de verificación al correo
+      // PASO 1 REGISTRO: Crear cuenta y enviar correo de verificación
       const manejarRegistro = async (e) => {
         e.preventDefault();
         setErrorAuth(null);
-        if (estadoCorreoMX && !estadoCorreoMX.valido) {
-          setErrorAuth({ tipo: "error", msg: estadoCorreoMX.texto });
+
+        const esCorreoValido = await verificarCorreoConGoogleDNS(correoReg);
+        if (!esCorreoValido) {
+          setErrorAuth({ tipo: "error", msg: "Por favor ingresa un correo electrónico real y válido antes de continuar." });
           return;
         }
 
+        setProcesandoAuth(true);
         const fd = new FormData();
         fd.append("nombre_completo", nombreReg);
         fd.append("matricula", matriculaReg);
-        fd.append("correo", correoReg);
+        fd.append("correo", correoReg.trim().toLowerCase());
         fd.append("password", passwordReg);
         fd.append("es_itics", true);
         fd.append("modo_semestre", modoSemestreReg);
@@ -155,43 +188,68 @@
         }
         if (fotoReg) fd.append("foto", fotoReg);
 
-        const res = await fetch(`${API_BASE}/api/auth/registro`, { method: "POST", body: fd });
-        const data = await res.json();
-        if (res.ok && data.requiere_verificacion) {
-          setCorreoEnProceso(data.correo);
-          setDigitosOTP(["", "", "", "", "", ""]);
-          setCodigoDemoSandbox(data.codigo_respaldo || null);
-          setErrorAuth({ tipo: "ok", msg: data.mensaje });
-          setModoAuth("verificar_correo");
-        } else {
-          setErrorAuth({ tipo: "error", msg: data.detail || "No se pudo crear la cuenta." });
+        try {
+          const res = await fetch(`${API_BASE}/api/auth/registro`, { method: "POST", body: fd });
+          const data = await res.json();
+          if (res.ok) {
+            if (data.requiere_verificacion) {
+              setCorreoEnProceso(data.correo || correoReg.trim().toLowerCase());
+              setDigitosOTP(["", "", "", "", "", ""]);
+              setErrorAuth({
+                tipo: "ok",
+                msg: `Hemos enviado un correo electrónico de verificación a ${data.correo || correoReg}. Revisa tu bandeja de entrada (o Spam) e ingresa el código de 6 dígitos.`
+              });
+              setModoAuth("verificar_correo");
+            } else if (data.usuario) {
+              // Compatibilidad por si el servidor aún corre la versión anterior
+              setCorreoEnProceso(correoReg.trim().toLowerCase());
+              setDigitosOTP(["", "", "", "", "", ""]);
+              setErrorAuth({
+                tipo: "ok",
+                msg: `Hemos enviado un correo electrónico de verificación a ${correoReg}. Ingresa el código de 6 dígitos para confirmar tu cuenta.`
+              });
+              setModoAuth("verificar_correo");
+            }
+          } else {
+            setErrorAuth({ tipo: "error", msg: data.detail || "No se pudo completar el registro." });
+          }
+        } catch {
+          setErrorAuth({ tipo: "error", msg: "Error de conexión con el servidor." });
+        } finally {
+          setProcesandoAuth(false);
         }
       };
 
-      // PASO 2 REGISTRO: Confirmar el código de 6 dígitos enviado al correo
+      // PASO 2 REGISTRO: Confirmar código de verificación enviado al correo
       const manejarVerificarCorreo = async (e) => {
         e.preventDefault();
         setErrorAuth(null);
         const codigoUnido = digitosOTP.join("");
         if (codigoUnido.length !== 6) {
-          setErrorAuth({ tipo: "error", msg: "Ingresa los 6 dígitos del código de verificación." });
+          setErrorAuth({ tipo: "error", msg: "Ingresa los 6 dígitos del código de verificación enviado a tu correo." });
           return;
         }
 
+        setProcesandoAuth(true);
         const fd = new FormData();
         fd.append("correo", correoEnProceso);
         fd.append("codigo", codigoUnido);
 
-        const res = await fetch(`${API_BASE}/api/auth/verificar-correo`, { method: "POST", body: fd });
-        const data = await res.json();
-        if (res.ok && data.usuario) {
-          localStorage.setItem("itp_usuario_sesion", JSON.stringify(data.usuario));
-          setUsuarioActivo(data.usuario);
-          setCodigoDemoSandbox(null);
-          await cargarDatosUsuario(data.usuario);
-          setVistaActual("portafolio");
-        } else {
-          setErrorAuth({ tipo: "error", msg: data.detail || "Código inválido." });
+        try {
+          const res = await fetch(`${API_BASE}/api/auth/verificar-correo`, { method: "POST", body: fd });
+          const data = await res.json();
+          if (res.ok && data.usuario) {
+            localStorage.setItem("itp_usuario_sesion", JSON.stringify(data.usuario));
+            setUsuarioActivo(data.usuario);
+            await cargarDatosUsuario(data.usuario);
+            setVistaActual("portafolio");
+          } else {
+            setErrorAuth({ tipo: "error", msg: data.detail || "El código de verificación es incorrecto o ha expirado." });
+          }
+        } catch {
+          setErrorAuth({ tipo: "error", msg: "Error al verificar el código." });
+        } finally {
+          setProcesandoAuth(false);
         }
       };
 
@@ -200,14 +258,17 @@
         const fd = new FormData();
         fd.append("correo", correoEnProceso);
         fd.append("proposito", proposito);
-        const res = await fetch(`${API_BASE}/api/auth/reenviar-codigo`, { method: "POST", body: fd });
-        const data = await res.json();
-        if (res.ok) {
-          setDigitosOTP(["", "", "", "", "", ""]);
-          setCodigoDemoSandbox(data.codigo_respaldo || null);
-          setErrorAuth({ tipo: "ok", msg: data.mensaje });
-        } else {
-          setErrorAuth({ tipo: "error", msg: data.detail });
+        try {
+          const res = await fetch(`${API_BASE}/api/auth/reenviar-codigo`, { method: "POST", body: fd });
+          const data = await res.json();
+          if (res.ok) {
+            setDigitosOTP(["", "", "", "", "", ""]);
+            setErrorAuth({ tipo: "ok", msg: data.mensaje });
+          } else {
+            setErrorAuth({ tipo: "error", msg: data.detail || "No se pudo reenviar el código." });
+          }
+        } catch {
+          setErrorAuth({ tipo: "error", msg: "Error de red al reenviar el correo." });
         }
       };
 
@@ -215,49 +276,61 @@
       const manejarLogin = async (e) => {
         e.preventDefault();
         setErrorAuth(null);
+        setProcesandoAuth(true);
         const fd = new FormData();
         fd.append("identificador", matriculaReg);
         fd.append("password", passwordReg);
 
-        const res = await fetch(`${API_BASE}/api/auth/login`, { method: "POST", body: fd });
-        const data = await res.json();
-        if (res.ok) {
-          if (data.requiere_verificacion) {
-            setCorreoEnProceso(data.correo);
-            setDigitosOTP(["", "", "", "", "", ""]);
-            setCodigoDemoSandbox(data.codigo_respaldo || null);
-            setErrorAuth({ tipo: "info", msg: data.mensaje });
-            setModoAuth("verificar_correo");
-          } else if (data.usuario) {
-            localStorage.setItem("itp_usuario_sesion", JSON.stringify(data.usuario));
-            setUsuarioActivo(data.usuario);
-            await cargarDatosUsuario(data.usuario);
-            setVistaActual("portafolio");
+        try {
+          const res = await fetch(`${API_BASE}/api/auth/login`, { method: "POST", body: fd });
+          const data = await res.json();
+          if (res.ok) {
+            if (data.requiere_verificacion) {
+              setCorreoEnProceso(data.correo);
+              setDigitosOTP(["", "", "", "", "", ""]);
+              setErrorAuth({ tipo: "info", msg: data.mensaje });
+              setModoAuth("verificar_correo");
+            } else if (data.usuario) {
+              localStorage.setItem("itp_usuario_sesion", JSON.stringify(data.usuario));
+              setUsuarioActivo(data.usuario);
+              await cargarDatosUsuario(data.usuario);
+              setVistaActual("portafolio");
+            }
+          } else {
+            setErrorAuth({ tipo: "error", msg: data.detail || "Correo/Número de control o contraseña incorrectos." });
           }
-        } else {
-          setErrorAuth({ tipo: "error", msg: data.detail || "Credenciales incorrectas." });
+        } catch {
+          setErrorAuth({ tipo: "error", msg: "Error de conexión con el servidor." });
+        } finally {
+          setProcesandoAuth(false);
         }
       };
 
-      // RECUPERAR CONTRASEÑA PASO 1: Poner el correo con el que se registró
+      // RECUPERAR CONTRASEÑA PASO 1: Ingresar el correo registrado
       const manejarSolicitarRecuperacion = async (e) => {
         e.preventDefault();
         setErrorAuth(null);
+        setProcesandoAuth(true);
         const fd = new FormData();
-        fd.append("correo", correoReg);
+        fd.append("correo", correoReg.trim().toLowerCase());
 
-        const res = await fetch(`${API_BASE}/api/auth/recuperar-solicitar`, { method: "POST", body: fd });
-        const data = await res.json();
-        if (res.ok) {
-          setCorreoEnProceso(data.correo);
-          setDigitosOTP(["", "", "", "", "", ""]);
-          setPasswordReg("");
-          setConfirmarPasswordReg("");
-          setCodigoDemoSandbox(data.codigo_respaldo || null);
-          setErrorAuth({ tipo: "ok", msg: data.mensaje });
-          setModoAuth("recuperar_nueva_clave");
-        } else {
-          setErrorAuth({ tipo: "error", msg: data.detail || "No encontramos ese correo." });
+        try {
+          const res = await fetch(`${API_BASE}/api/auth/recuperar-solicitar`, { method: "POST", body: fd });
+          const data = await res.json();
+          if (res.ok) {
+            setCorreoEnProceso(data.correo || correoReg.trim().toLowerCase());
+            setDigitosOTP(["", "", "", "", "", ""]);
+            setPasswordReg("");
+            setConfirmarPasswordReg("");
+            setErrorAuth({ tipo: "ok", msg: data.mensaje });
+            setModoAuth("recuperar_nueva_clave");
+          } else {
+            setErrorAuth({ tipo: "error", msg: data.detail || "No existe ninguna cuenta asociada a ese correo electrónico." });
+          }
+        } catch {
+          setErrorAuth({ tipo: "error", msg: "Error al procesar la solicitud." });
+        } finally {
+          setProcesandoAuth(false);
         }
       };
 
@@ -267,26 +340,36 @@
         setErrorAuth(null);
         const codigoUnido = digitosOTP.join("");
         if (codigoUnido.length !== 6) {
-          setErrorAuth({ tipo: "error", msg: "Ingresa los 6 dígitos del código de verificación." });
+          setErrorAuth({ tipo: "error", msg: "Ingresa los 6 dígitos del código enviado a tu correo." });
+          return;
+        }
+        if (passwordReg !== confirmarPasswordReg) {
+          setErrorAuth({ tipo: "error", msg: "Las contraseñas no coinciden." });
           return;
         }
 
+        setProcesandoAuth(true);
         const fd = new FormData();
         fd.append("correo", correoEnProceso);
         fd.append("codigo", codigoUnido);
         fd.append("nueva_password", passwordReg);
         fd.append("confirmar_password", confirmarPasswordReg);
 
-        const res = await fetch(`${API_BASE}/api/auth/recuperar-confirmar`, { method: "POST", body: fd });
-        const data = await res.json();
-        if (res.ok) {
-          setCodigoDemoSandbox(null);
-          setMatriculaReg(correoEnProceso);
-          setPasswordReg("");
-          setErrorAuth({ tipo: "ok", msg: data.mensaje });
-          setModoAuth("login");
-        } else {
-          setErrorAuth({ tipo: "error", msg: data.detail || "No se pudo cambiar la contraseña." });
+        try {
+          const res = await fetch(`${API_BASE}/api/auth/recuperar-confirmar`, { method: "POST", body: fd });
+          const data = await res.json();
+          if (res.ok) {
+            setMatriculaReg(correoEnProceso);
+            setPasswordReg("");
+            setErrorAuth({ tipo: "ok", msg: data.mensaje });
+            setModoAuth("login");
+          } else {
+            setErrorAuth({ tipo: "error", msg: data.detail || "No se pudo restablecer la contraseña." });
+          }
+        } catch {
+          setErrorAuth({ tipo: "error", msg: "Error de conexión." });
+        } finally {
+          setProcesandoAuth(false);
         }
       };
 
@@ -351,14 +434,14 @@
 
       return (
         <div className="min-h-screen bg-slate-950 text-slate-100 font-sans">
-          {/* BARRA SUPERIOR */}
+          {/* BARRA DE NAVEGACIÓN */}
           <nav className="border-b border-slate-800 bg-slate-900 sticky top-0 z-40 print:hidden">
             <div className="max-w-7xl mx-auto px-6 py-4 flex flex-wrap justify-between items-center gap-4">
               <div className="flex items-center gap-3 cursor-pointer" onClick={() => setVistaActual("inicio")}>
                 <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-lg">ITP</div>
                 <div>
                   <span className="font-bold text-white block leading-none">Portafolio Académico ITP</span>
-                  <span className="text-xs text-blue-400">Ingeniería en TICs • Seguridad 2FA Verificada</span>
+                  <span className="text-xs text-blue-400">Ingeniería en TICs • Retícula Oficial ITIC-2010-225</span>
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -380,17 +463,17 @@
             </div>
           </nav>
 
-          {/* 1. LANDING PAGE */}
+          {/* 1. PÁGINA DE INICIO */}
           {vistaActual === "inicio" && (
             <main className="max-w-6xl mx-auto px-6 py-16 text-center">
               <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-950 text-blue-300 border border-blue-800">
-                Instituto Tecnológico de Puebla • Verificación en 2 Pasos + IA
+                Instituto Tecnológico de Puebla • Ingeniería en TICs
               </span>
               <h1 className="text-4xl md:text-6xl font-extrabold mt-6 text-white leading-tight">
-                Plataforma de Portafolio Académico <span className="text-blue-400">ITICs</span>
+                Plataforma de Portafolio Académico y <span className="text-blue-400">CV Verificable</span>
               </h1>
               <p className="mt-6 text-lg text-slate-300 max-w-3xl mx-auto">
-                Crea tu cuenta estudiantil verificando tu correo electrónico real, sube tus evidencias por semestre y genera automáticamente tu Currículum Técnico analizado por Inteligencia Artificial.
+                Registra tu cuenta estudiantil verificando tu correo electrónico, sube tus proyectos por semestre y genera automáticamente tu Currículum Técnico analizado por Inteligencia Artificial.
               </p>
               <div className="mt-10 flex justify-center gap-4">
                 {!usuarioActivo ? (
@@ -405,7 +488,7 @@
             </main>
           )}
 
-          {/* 2. MÓDULO DE SEGURIDAD: CREAR CUENTA / VERIFICAR CORREO (2FA) / LOGIN / RECUPERAR CONTRASEÑA */}
+          {/* 2. MÓDULO DE CUENTA Y VERIFICACIÓN EN DOS PASOS */}
           {vistaActual === "auth" && (
             <section className="max-w-xl mx-auto px-6 py-10">
               <div className="p-8 rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl">
@@ -418,7 +501,7 @@
                 )}
 
                 {errorAuth && (
-                  <div className={`mb-5 p-4 rounded-xl border text-xs font-semibold ${
+                  <div className={`mb-5 p-4 rounded-xl border text-xs font-semibold leading-relaxed ${
                     errorAuth.tipo === "ok" ? "bg-emerald-950/70 border-emerald-500 text-emerald-200" :
                     errorAuth.tipo === "info" ? "bg-blue-950/70 border-blue-500 text-blue-200" :
                     "bg-red-950/70 border-red-500 text-red-200"
@@ -427,13 +510,13 @@
                   </div>
                 )}
 
-                {/* PANTALLA A: CREAR CUENTA CON VALIDACIÓN DNS MX EN TIEMPO REAL */}
+                {/* PANTALLA 1: CREAR CUENTA */}
                 {modoAuth === "registro" && (
                   <form onSubmit={manejarRegistro} className="space-y-4">
                     <div>
                       <h2 className="text-2xl font-extrabold text-white">Crear Cuenta</h2>
                       <p className="text-xs text-slate-400 mt-1">
-                        Validaremos que tu correo personal exista realmente y te enviaremos un código de 6 dígitos para verificar tu identidad.
+                        Al registrarte te enviaremos un correo electrónico con un código de 6 dígitos para verificar tu cuenta.
                       </p>
                     </div>
 
@@ -449,19 +532,19 @@
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-emerald-400 mb-1">Correo Personal (Se verificará que exista) *</label>
+                      <label className="block text-xs font-bold text-emerald-400 mb-1">Correo Personal *</label>
                       <input
                         required
                         type="email"
                         value={correoReg}
                         onChange={e => { setCorreoReg(e.target.value); setEstadoCorreoMX(null); }}
-                        onBlur={e => verificarCorreoEnTiempoReal(e.target.value)}
-                        placeholder="tu_correo_real@gmail.com"
+                        onBlur={e => verificarCorreoConGoogleDNS(e.target.value)}
+                        placeholder="tu_correo@gmail.com"
                         className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white font-mono"
                       />
-                      {validandoMX && <p className="text-[11px] text-blue-400 mt-1">Comprobando servidores de correo DNS (MX)...</p>}
+                      {validandoMX && <p className="text-[11px] text-blue-400 mt-1">Verificando existencia del dominio de correo...</p>}
                       {estadoCorreoMX && (
-                        <p className={`text-[11px] mt-1 font-semibold ${estadoCorreoMX.valido ? "text-emerald-400" : "text-red-400"}`}>
+                        <p className={`text-[11px] mt-1.5 font-semibold ${estadoCorreoMX.valido ? "text-emerald-400" : "text-red-400"}`}>
                           {estadoCorreoMX.valido ? "✓ " : "✕ "}{estadoCorreoMX.texto}
                         </p>
                       )}
@@ -495,38 +578,33 @@
                       )}
                     </div>
 
-                    <button type="submit" className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 font-extrabold text-white text-sm shadow-lg">
-                      Crear Cuenta y Verificar Correo →
+                    <button type="submit" disabled={procesandoAuth} className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 font-extrabold text-white text-sm shadow-lg">
+                      {procesandoAuth ? "Enviando correo de verificación..." : "Crear Cuenta y Enviar Código de Verificación →"}
                     </button>
                   </form>
                 )}
 
-                {/* PANTALLA B: VERIFICAR CORREO ELECTRÓNICO (2FA CON 6 CASILLAS) */}
+                {/* PANTALLA 2: VERIFICAR CORREO ELECTRÓNICO (ESTILO GOOGLE 2-STEP VERIFICATION) */}
                 {modoAuth === "verificar_correo" && (
                   <form onSubmit={manejarVerificarCorreo} className="space-y-6">
                     <div className="text-center">
-                      <div className="w-14 h-14 rounded-2xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center mx-auto mb-3 text-2xl">
-                        ✉️
+                      <div className="w-16 h-16 rounded-full bg-blue-600/20 border border-blue-500/40 flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
                       </div>
-                      <h2 className="text-2xl font-extrabold text-white">Verificar correo electrónico</h2>
+                      <h2 className="text-2xl font-extrabold text-white">Verificar tu correo electrónico</h2>
                       <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-                        Por seguridad, ingresa el código de verificación de 6 dígitos que enviamos a:<br/>
+                        Para proteger tu cuenta, hemos enviado un correo electrónico con un código de verificación de 6 dígitos a:<br/>
                         <span className="font-mono font-bold text-blue-400 text-sm">{correoEnProceso}</span>
                       </p>
                     </div>
 
-                    {codigoDemoSandbox && (
-                      <div className="p-3 rounded-xl bg-amber-950/70 border border-amber-500/60 text-amber-200 text-xs text-center">
-                        <span className="font-bold block">Modo Demostración Activo (Sin SMTP configurado en servidor):</span>
-                        Tu código de verificación generado es: <strong className="font-mono text-base text-white tracking-widest ml-1">{codigoDemoSandbox}</strong>
-                      </div>
-                    )}
-
                     <div>
                       <label className="block text-xs font-bold uppercase text-slate-400 text-center mb-3">
-                        Código de verificación (6 dígitos)
+                        Ingresa el código de verificación
                       </label>
-                      <div className="flex justify-center gap-2" onPaste={pegarCodigoCompleto}>
+                      <div className="flex justify-center gap-2.5" onPaste={pegarCodigoCompleto}>
                         {digitosOTP.map((dig, idx) => (
                           <input
                             key={idx}
@@ -542,27 +620,27 @@
                       </div>
                     </div>
 
-                    <button type="submit" className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-extrabold text-white text-sm shadow-lg">
-                      Verificar Correo y Activar Cuenta
+                    <button type="submit" disabled={procesandoAuth} className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 font-extrabold text-white text-sm shadow-lg">
+                      {procesandoAuth ? "Verificando código..." : "Verificar Correo y Activar Cuenta"}
                     </button>
 
-                    <div className="flex justify-between items-center text-xs pt-2 border-t border-slate-800">
+                    <div className="flex justify-between items-center text-xs pt-3 border-t border-slate-800">
                       <button type="button" onClick={() => manejarReenviarCodigo("VERIFICAR_CORREO")} className="text-blue-400 font-bold hover:underline">
-                        Reenviar código nuevo
+                        ¿No recibiste el correo? Reenviar código
                       </button>
                       <button type="button" onClick={() => { setModoAuth("registro"); setErrorAuth(null); }} className="text-slate-400 hover:text-white">
-                        Cambiar correo electrónico
+                        Cambiar correo
                       </button>
                     </div>
                   </form>
                 )}
 
-                {/* PANTALLA C: INICIAR SESIÓN */}
+                {/* PANTALLA 3: INICIAR SESIÓN */}
                 {modoAuth === "login" && (
                   <form onSubmit={manejarLogin} className="space-y-4">
                     <div>
                       <h2 className="text-2xl font-extrabold text-white">Iniciar Sesión</h2>
-                      <p className="text-xs text-slate-400 mt-1">Ingresa con tu correo personal verificado o número de control.</p>
+                      <p className="text-xs text-slate-400 mt-1">Accede con tu correo personal verificado o tu número de control.</p>
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-blue-400 mb-1">Correo Personal o Número de Control *</label>
@@ -577,27 +655,27 @@
                       </div>
                       <input required type="password" value={passwordReg} onChange={e => setPasswordReg(e.target.value)} placeholder="••••••••" className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" />
                     </div>
-                    <button type="submit" className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 font-extrabold text-white text-sm">
-                      Entrar a Mi Cuenta
+                    <button type="submit" disabled={procesandoAuth} className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 font-extrabold text-white text-sm">
+                      {procesandoAuth ? "Iniciando sesión..." : "Entrar a Mi Cuenta"}
                     </button>
                   </form>
                 )}
 
-                {/* PANTALLA D: RECUPERAR CONTRASEÑA PASO 1 (ESCRIBIR EL CORREO CON EL QUE SE REGISTRÓ) */}
+                {/* PANTALLA 4: RECUPERAR CONTRASEÑA PASO 1 (ESCRIBIR EL CORREO REGISTRADO) */}
                 {modoAuth === "recuperar_correo" && (
                   <form onSubmit={manejarSolicitarRecuperacion} className="space-y-4">
                     <div>
-                      <h2 className="text-2xl font-extrabold text-white">Recuperar Contraseña</h2>
-                      <p className="text-xs text-slate-400 mt-1">
-                        Escribe el correo electrónico con el que registraste tu cuenta. Te enviaremos un código de verificación de 6 dígitos para que puedas crear una nueva contraseña.
+                      <h2 className="text-2xl font-extrabold text-white">Recuperación de Cuenta</h2>
+                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                        Ingresa el correo electrónico con el que creaste tu cuenta. Te enviaremos un correo con un código de verificación de 6 dígitos para confirmar que eres tú y permitirte crear una nueva contraseña.
                       </p>
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-blue-400 mb-1">Correo Electrónico Registrado *</label>
                       <input required type="email" value={correoReg} onChange={e => setCorreoReg(e.target.value)} placeholder="tu_correo@gmail.com" className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white font-mono" />
                     </div>
-                    <button type="submit" className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 font-extrabold text-white text-sm">
-                      Enviar Código de Verificación
+                    <button type="submit" disabled={procesandoAuth} className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 font-extrabold text-white text-sm">
+                      {procesandoAuth ? "Enviando correo..." : "Enviar Correo con Código de Verificación"}
                     </button>
                     <div className="text-center pt-2">
                       <button type="button" onClick={() => { setModoAuth("login"); setErrorAuth(null); }} className="text-xs text-slate-400 hover:text-white">
@@ -607,22 +685,15 @@
                   </form>
                 )}
 
-                {/* PANTALLA E: RECUPERAR CONTRASEÑA PASO 2 (PONER CÓDIGO DE 6 DÍGITOS + NUEVA CONTRASEÑA) */}
+                {/* PANTALLA 5: RECUPERAR CONTRASEÑA PASO 2 (CÓDIGO DE 6 DÍGITOS + NUEVA CONTRASEÑA) */}
                 {modoAuth === "recuperar_nueva_clave" && (
-                  <form onSubmit={manejarConfirmarNuevaPassword} className="space-y-4">
+                  <form onSubmit={manejarConfirmarNuevaPassword} className="space-y-5">
                     <div className="text-center">
-                      <h2 className="text-2xl font-extrabold text-white">Verificar y Crear Nueva Contraseña</h2>
+                      <h2 className="text-2xl font-extrabold text-white">Restablecer Contraseña</h2>
                       <p className="text-xs text-slate-300 mt-1">
-                        Ingresa el código enviado a <span className="font-mono text-blue-400 font-bold">{correoEnProceso}</span> y define tu nueva contraseña.
+                        Ingresa el código de 6 dígitos que enviamos a <span className="font-mono text-blue-400 font-bold">{correoEnProceso}</span> y escribe tu nueva contraseña.
                       </p>
                     </div>
-
-                    {codigoDemoSandbox && (
-                      <div className="p-3 rounded-xl bg-amber-950/70 border border-amber-500/60 text-amber-200 text-xs text-center">
-                        <span className="font-bold block">Modo Demostración Activo:</span>
-                        Código de recuperación generado: <strong className="font-mono text-base text-white tracking-widest ml-1">{codigoDemoSandbox}</strong>
-                      </div>
-                    )}
 
                     <div>
                       <label className="block text-xs font-bold uppercase text-slate-400 text-center mb-2">
@@ -654,13 +725,13 @@
                       <input required type="password" value={confirmarPasswordReg} onChange={e => setConfirmarPasswordReg(e.target.value)} placeholder="Repite tu nueva contraseña" className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" />
                     </div>
 
-                    <button type="submit" className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-extrabold text-white text-sm">
+                    <button type="submit" disabled={procesandoAuth} className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-extrabold text-white text-sm">
                       Guardar Nueva Contraseña
                     </button>
 
                     <div className="flex justify-between text-xs pt-2 border-t border-slate-800">
                       <button type="button" onClick={() => manejarReenviarCodigo("RECUPERAR_PASSWORD")} className="text-blue-400 font-bold hover:underline">
-                        Reenviar código
+                        Reenviar código al correo
                       </button>
                       <button type="button" onClick={() => { setModoAuth("login"); setErrorAuth(null); }} className="text-slate-400 hover:text-white">
                         Cancelar

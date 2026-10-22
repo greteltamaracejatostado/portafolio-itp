@@ -5,9 +5,10 @@ import json
 import uuid
 import zipfile
 import hashlib
+import secrets
 import mimetypes
-import random
 import smtplib
+import urllib.request
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, date, timedelta
@@ -24,7 +25,7 @@ from models import (
     create_engine, sessionmaker, inicializar_reticula_itp
 )
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./portafolio_ia_itp.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./portafolio_seguro_itp.db")
 UPLOAD_DIR = "./storage_evidencias"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
@@ -42,7 +43,7 @@ def preparar_reticula():
 
 preparar_reticula()
 
-app = FastAPI(title="CommonKADS - Portafolio Académico ITP con IA", version="7.0.0")
+app = FastAPI(title="Portafolio Académico ITP - Plataforma Oficial", version="9.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -65,54 +66,408 @@ def get_db():
 def servir_frontend():
     if os.path.exists("index.html"):
         return FileResponse("index.html", headers={"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"})
-    return {"mensaje": "Falta index.html"}
+    return {"mensaje": "Servidor activo"}
 
-# --- MOTOR DE CORREO REAL (GMAIL SMTP) ---
-def enviar_correo_real(destinatario: str, asunto: str, cuerpo: str):
+# --- SEGURIDAD CRIPTOGRÁFICA ---
+def hashear_secreto(texto: str) -> str:
+    salt = secrets.token_hex(16)
+    key = hashlib.pbkdf2_hmac("sha256", texto.encode("utf-8"), salt.encode("utf-8"), 100000).hex()
+    return f"{salt}${key}"
+
+def verificar_secreto(texto_plano: str, hash_guardado: str) -> bool:
+    if not hash_guardado or "$" not in hash_guardado:
+        return hashlib.sha256(texto_plano.encode("utf-8")).hexdigest() == hash_guardado
+    salt, key = hash_guardado.split("$", 1)
+    nuevo_key = hashlib.pbkdf2_hmac("sha256", texto_plano.encode("utf-8"), salt.encode("utf-8"), 100000).hex()
+    return secrets.compare_digest(key, nuevo_key)
+
+def generar_otp_6_digitos() -> str:
+    return f"{secrets.randbelow(900000) + 100000}"
+
+# --- VALIDACIÓN DE CORREO REAL CONTRA GOOGLE PUBLIC DNS (dns.google) ---
+DOMINIOS_BLOQUEADOS = {
+    "tail.com", "test.com", "example.com", "mailinator.com", "tempmail.com",
+    "10minutemail.com", "guerrillamail.com", "yopmail.com", "fake.com", "correo.com"
+}
+
+TYPOS_DOMINIO = {
+    "gmal.com": "gmail.com", "gamil.com": "gmail.com", "gmial.com": "gmail.com",
+    "hotmal.com": "hotmail.com", "outlok.com": "outlook.com"
+}
+
+def verificar_correo_con_google_dns(correo: str) -> dict:
+    correo = correo.strip().lower()
+    if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_.+-]{1,62}@[a-zA-Z0-9-]+\.[a-zA-Z]{2,}$", correo):
+        return {"valido": False, "motivo": "El formato del correo electrónico no es válido."}
+
+    usuario_parte, dominio = correo.split("@", 1)
+    if dominio in TYPOS_DOMINIO:
+        return {"valido": False, "motivo": f"¿Quisiste decir {usuario_parte}@{TYPOS_DOMINIO[dominio]}?"}
+    if dominio in DOMINIOS_BLOQUEADOS:
+        return {"valido": False, "motivo": f"El dominio @{dominio} no es un proveedor de correo válido."}
+
+    try:
+        url_google_dns = f"https://dns.google/resolve?name={dominio}&type=MX"
+        req = urllib.request.Request(url_google_dns, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=4) as response:
+            data = json.loads(response.read().decode("utf-8"))
+            if data.get("Status") == 0 and data.get("Answer"):
+                return {"valido": True, "mensaje": f"Correo válido verificado ({dominio})."}
+            return {"valido": False, "motivo": f"El dominio @{dominio} no existe o no puede recibir correos."}
+    except Exception:
+        return {"valido": True, "mensaje": "Formato de correo válido."}
+
+# --- ENVÍO DE CORREO DE VERIFICACIÓN ---
+def enviar_correo_verificacion(destinatario: str, nombre: str, codigo_otp: str, proposito: str) -> bool:
     remitente = os.getenv("SMTP_EMAIL")
     password = os.getenv("SMTP_PASSWORD")
 
-    # Si no configuras las variables en Render, imprimirá el código en la consola para no romper el programa
-    if not remitente or not password:
-        print(f"\n[AVISO SMTP] El código para {destinatario} es:\n{cuerpo}\n")
-        return True
+    accion = "verificar tu correo electrónico y activar tu cuenta" if proposito == "VERIFICAR_CORREO" else "restablecer tu contraseña"
+    html_body = f"""
+    <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 32px; background: #ffffff; color: #0f172a; border-radius: 12px; border: 1px solid #e2e8f0;">
+        <div style="margin-bottom: 20px;">
+            <span style="background: #2563eb; color: #ffffff; font-weight: bold; padding: 6px 12px; border-radius: 6px; font-size: 14px;">ITP</span>
+            <span style="font-weight: bold; font-size: 16px; margin-left: 8px; color: #0f172a;">Portafolio Académico ITP</span>
+        </div>
+        <h2 style="color: #0f172a; margin-top: 0; font-size: 20px;">Verificación de correo electrónico</h2>
+        <p style="color: #334155; font-size: 14px; line-height: 1.5;">Hola <strong>{nombre}</strong>,</p>
+        <p style="color: #334155; font-size: 14px; line-height: 1.5;">Hemos recibido una solicitud para {accion}. Ingresa el siguiente código de verificación de 6 dígitos:</p>
+        <div style="background: #f8fafc; border: 2px solid #2563eb; border-radius: 10px; padding: 20px; text-align: center; margin: 24px 0;">
+            <span style="font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #1e40af; font-family: monospace;">{codigo_otp}</span>
+        </div>
+        <p style="color: #64748b; font-size: 12px;">Este código es válido por 15 minutos. Si no realizaste esta solicitud, puedes ignorar este correo de forma segura.</p>
+    </div>
+    """
 
-    msg = MIMEMultipart()
-    msg['From'] = remitente
-    msg['To'] = destinatario
-    msg['Subject'] = asunto
-    msg.attach(MIMEText(cuerpo, 'plain'))
+    if not remitente or not password:
+        print(f"[SMTP NO CONFIGURADO] Correo destino: {destinatario} | Código: {codigo_otp}")
+        return False
 
     try:
-        server = smtplib.SMTP('smtp.gmail.com', 587)
+        msg = MIMEMultipart("alternative")
+        msg["From"] = f"Portafolio Académico ITP <{remitente}>"
+        msg["To"] = destinatario
+        msg["Subject"] = f"{codigo_otp} es tu código de verificación - Portafolio ITP"
+        msg.attach(MIMEText(html_body, "html"))
+
+        server = smtplib.SMTP("smtp.gmail.com", 587, timeout=10)
         server.starttls()
         server.login(remitente, password)
         server.send_message(msg)
         server.quit()
         return True
     except Exception as e:
-        print(f"Error enviando correo SMTP: {e}")
+        print("Error enviando SMTP:", e)
         return False
 
 def calcular_semestre_vigente(usuario: Usuario) -> dict:
     sem_base = usuario.semestre_base or 1
     if usuario.modo_semestre == "MANUAL" or not usuario.fecha_fin_semestre:
-        return {"semestre_calculado": sem_base, "modo": "Manual", "explicacion": f"Semestre {sem_base}° establecido manualmente."}
+        return {"semestre_calculado": sem_base, "modo": "Manual", "explicacion": f"Semestre {sem_base}° en curso."}
     try:
         hoy = date.today()
         fin_sem = datetime.strptime(usuario.fecha_fin_semestre, "%Y-%m-%d").date()
         inicio_sem = datetime.strptime(usuario.fecha_inicio_semestre, "%Y-%m-%d").date() if usuario.fecha_inicio_semestre else fin_sem
-
         if hoy <= fin_sem:
-            return {"semestre_calculado": sem_base, "modo": "Automático (En curso)", "explicacion": f"Cursando {sem_base}° semestre (Del {inicio_sem} al {fin_sem})."}
-        else:
-            dias_extra = (hoy - fin_sem).days
-            semestres_adicionales = (dias_extra // 180) + 1
-            nuevo_semestre = min(9, sem_base + semestres_adicionales)
-            return {"semestre_calculado": nuevo_semestre, "modo": "Automático (Actualizado)", "explicacion": f"El periodo terminó el {fin_sem}; actualizado a {nuevo_semestre}° semestre."}
+            return {"semestre_calculado": sem_base, "modo": "Automático", "explicacion": f"Cursando {sem_base}° semestre ({inicio_sem} a {fin_sem})."}
+        dias_extra = (hoy - fin_sem).days
+        semestres_adicionales = (dias_extra // 180) + 1
+        nuevo_semestre = min(9, sem_base + semestres_adicionales)
+        return {"semestre_calculado": nuevo_semestre, "modo": "Automático", "explicacion": f"Actualizado automáticamente a {nuevo_semestre}° semestre."}
     except Exception:
-        return {"semestre_calculado": sem_base, "modo": "Respaldo Manual", "explicacion": f"Formato inválido; semestre {sem_base}° manual."}
+        return {"semestre_calculado": sem_base, "modo": "Manual", "explicacion": f"Semestre {sem_base}° activo."}
 
+# --- ENDPOINTS DE VALIDACIÓN, REGISTRO, VERIFICACIÓN Y RECUPERACIÓN ---
+
+@app.post("/api/auth/validar-correo")
+def endpoint_validar_correo(correo: str = Form(...), db: Session = Depends(get_db)):
+    correo_limpio = correo.strip().lower()
+    validacion = verificar_correo_con_google_dns(correo_limpio)
+    if not validacion["valido"]:
+        raise HTTPException(status_code=400, detail=validacion["motivo"])
+
+    ya_existe = db.query(Usuario).filter(Usuario.correo == correo_limpio, Usuario.cuenta_verificada == True).first()
+    if ya_existe:
+        raise HTTPException(status_code=400, detail="Este correo electrónico ya está registrado. Inicia sesión.")
+    return validacion
+
+@app.post("/api/auth/registro", status_code=201)
+async def registrar_estudiante(
+    nombre_completo: str = Form(...),
+    matricula: str = Form(...),
+    correo: str = Form(...),
+    password: str = Form(...),
+    es_itics: bool = Form(True),
+    modo_semestre: str = Form("AUTOMATICO"),
+    semestre_base: int = Form(1),
+    fecha_inicio_semestre: Optional[str] = Form(None),
+    fecha_fin_semestre: Optional[str] = Form(None),
+    foto: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db)
+):
+    matricula_limpia = matricula.strip().upper()
+    correo_limpio = correo.strip().lower()
+
+    if len(password) < 6:
+        raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 6 caracteres.")
+
+    validacion_correo = verificar_correo_con_google_dns(correo_limpio)
+    if not validacion_correo["valido"]:
+        raise HTTPException(status_code=400, detail=validacion_correo["motivo"])
+
+    existente = db.query(Usuario).filter(
+        (Usuario.matricula == matricula_limpia) | (Usuario.correo == correo_limpio)
+    ).first()
+
+    if existente and existente.cuenta_verificada:
+        raise HTTPException(status_code=400, detail="Ese Número de Control o Correo Personal ya está registrado. Inicia sesión.")
+
+    foto_ruta = existente.foto_url if existente else None
+    if foto and foto.filename:
+        carpeta_perfil = os.path.join(UPLOAD_DIR, "perfiles")
+        os.makedirs(carpeta_perfil, exist_ok=True)
+        nombre_foto = f"{matricula_limpia}_{uuid.uuid4().hex[:6]}_{foto.filename}"
+        ruta_fisica = os.path.join(carpeta_perfil, nombre_foto)
+        with open(ruta_fisica, "wb") as f:
+            f.write(await foto.read())
+        foto_ruta = f"/archivos/perfiles/{nombre_foto}"
+
+    codigo_otp = generar_otp_6_digitos()
+    carrera = db.query(Carrera).filter_by(clave_oficial="ITIC-2010-225").first()
+
+    if existente and not existente.cuenta_verificada:
+        existente.nombre_completo = nombre_completo.strip()
+        existente.matricula = matricula_limpia
+        existente.correo = correo_limpio
+        existente.password_hash = hashear_secreto(password)
+        existente.foto_url = foto_ruta
+        existente.modo_semestre = modo_semestre
+        existente.semestre_base = semestre_base
+        existente.fecha_inicio_semestre = fecha_inicio_semestre or None
+        existente.fecha_fin_semestre = fecha_fin_semestre or None
+        existente.otp_hash = hashear_secreto(codigo_otp)
+        existente.otp_expiracion = datetime.utcnow() + timedelta(minutes=15)
+        existente.otp_proposito = "VERIFICAR_CORREO"
+        existente.otp_intentos = 0
+        usuario_obj = existente
+    else:
+        usuario_obj = Usuario(
+            nombre_completo=nombre_completo.strip(),
+            matricula=matricula_limpia,
+            correo=correo_limpio,
+            password_hash=hashear_secreto(password),
+            foto_url=foto_ruta,
+            es_itics=es_itics,
+            modo_semestre=modo_semestre,
+            semestre_base=semestre_base,
+            fecha_inicio_semestre=fecha_inicio_semestre or None,
+            fecha_fin_semestre=fecha_fin_semestre or None,
+            carrera_id=carrera.id if carrera else None,
+            cuenta_verificada=False,
+            otp_hash=hashear_secreto(codigo_otp),
+            otp_expiracion=datetime.utcnow() + timedelta(minutes=15),
+            otp_proposito="VERIFICAR_CORREO",
+            otp_intentos=0
+        )
+        db.add(usuario_obj)
+
+    db.commit()
+    db.refresh(usuario_obj)
+
+    enviado_real = enviar_correo_verificacion(usuario_obj.correo, usuario_obj.nombre_completo, codigo_otp, "VERIFICAR_CORREO")
+
+    return {
+        "requiere_verificacion": True,
+        "correo": usuario_obj.correo,
+        "smtp_activo": enviado_real,
+        "mensaje": f"Te hemos enviado un correo electrónico de verificación con un código de 6 dígitos a {usuario_obj.correo}."
+    }
+
+@app.post("/api/auth/verificar-correo")
+def verificar_codigo_correo(correo: str = Form(...), codigo: str = Form(...), db: Session = Depends(get_db)):
+    usuario = db.query(Usuario).filter(Usuario.correo == correo.strip().lower()).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="No se encontró la cuenta asociada a este correo.")
+
+    if usuario.otp_intentos >= 5:
+        raise HTTPException(status_code=429, detail="Se agotaron los intentos permitidos. Haz clic en Reenviar código.")
+
+    if not usuario.otp_expiracion or datetime.utcnow() > usuario.otp_expiracion:
+        raise HTTPException(status_code=400, detail="El código de verificación ha expirado. Solicita uno nuevo.")
+
+    if not usuario.otp_hash or not verificar_secreto(codigo.strip(), usuario.otp_hash):
+        usuario.otp_intentos += 1
+        db.commit()
+        restantes = max(0, 5 - usuario.otp_intentos)
+        raise HTTPException(status_code=400, detail=f"El código ingresado es incorrecto. Te quedan {restantes} intentos.")
+
+    usuario.cuenta_verificada = True
+    usuario.otp_hash = None
+    usuario.otp_expiracion = None
+    usuario.otp_proposito = None
+    usuario.otp_intentos = 0
+    db.commit()
+
+    info_sem = calcular_semestre_vigente(usuario)
+    return {
+        "mensaje": "Correo verificado correctamente. Bienvenido(a) a tu Portafolio Académico.",
+        "usuario": {
+            "id": usuario.id, "nombre": usuario.nombre_completo, "matricula": usuario.matricula,
+            "correo": usuario.correo, "foto_url": usuario.foto_url, "es_itics": usuario.es_itics,
+            "cuenta_verificada": True,
+            "semestre_actual": info_sem["semestre_calculado"], "detalle_semestre": info_sem["explicacion"]
+        }
+    }
+
+# --- VERIFICACIÓN DIRECTA CON TOKEN OFICIAL DE GOOGLE (OAUTH2 / GOOGLE IDENTITY) ---
+@app.post("/api/auth/google-verify")
+def verificar_con_google_token(
+    id_token: str = Form(...),
+    correo_esperado: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
+):
+    try:
+        url = f"https://oauth2.googleapis.com/tokeninfo?id_token={id_token}"
+        with urllib.request.urlopen(url, timeout=5) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+    except Exception:
+        raise HTTPException(status_code=401, detail="No se pudo validar la credencial con Google.")
+
+    if payload.get("email_verified") != "true":
+        raise HTTPException(status_code=400, detail="Tu cuenta de Google no tiene el correo verificado.")
+
+    email_google = payload.get("email", "").lower()
+    if correo_esperado and email_google != correo_esperado.strip().lower():
+        raise HTTPException(status_code=400, detail=f"Selecciona la misma cuenta de Google que registraste ({correo_esperado}).")
+
+    usuario = db.query(Usuario).filter(Usuario.correo == email_google).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Primero completa tus datos de estudiante en Crear Cuenta.")
+
+    usuario.cuenta_verificada = True
+    usuario.otp_hash = None
+    db.commit()
+
+    info_sem = calcular_semestre_vigente(usuario)
+    return {
+        "usuario": {
+            "id": usuario.id, "nombre": usuario.nombre_completo, "matricula": usuario.matricula,
+            "correo": usuario.correo, "foto_url": usuario.foto_url or payload.get("picture"),
+            "es_itics": usuario.es_itics, "cuenta_verificada": True,
+            "semestre_actual": info_sem["semestre_calculado"], "detalle_semestre": info_sem["explicacion"]
+        }
+    }
+
+@app.post("/api/auth/reenviar-codigo")
+def reenviar_codigo_verificacion(correo: str = Form(...), proposito: str = Form("VERIFICAR_CORREO"), db: Session = Depends(get_db)):
+    usuario = db.query(Usuario).filter(Usuario.correo == correo.strip().lower()).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="El correo electrónico no está registrado.")
+
+    nuevo_otp = generar_otp_6_digitos()
+    usuario.otp_hash = hashear_secreto(nuevo_otp)
+    usuario.otp_expiracion = datetime.utcnow() + timedelta(minutes=15)
+    usuario.otp_proposito = proposito
+    usuario.otp_intentos = 0
+    db.commit()
+
+    enviar_correo_verificacion(usuario.correo, usuario.nombre_completo, nuevo_otp, proposito)
+    return {"mensaje": f"Se ha enviado un nuevo correo con tu código de verificación a {usuario.correo}."}
+
+@app.post("/api/auth/login")
+def login_estudiante(identificador: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
+    ident = identificador.strip()
+    usuario = db.query(Usuario).filter(
+        (Usuario.matricula == ident.upper()) | (Usuario.correo == ident.lower())
+    ).first()
+
+    if not usuario or not verificar_secreto(password, usuario.password_hash):
+        raise HTTPException(status_code=401, detail="Correo/Número de control o contraseña incorrectos.")
+
+    if not usuario.cuenta_verificada:
+        nuevo_otp = generar_otp_6_digitos()
+        usuario.otp_hash = hashear_secreto(nuevo_otp)
+        usuario.otp_expiracion = datetime.utcnow() + timedelta(minutes=15)
+        usuario.otp_proposito = "VERIFICAR_CORREO"
+        usuario.otp_intentos = 0
+        db.commit()
+        enviar_correo_verificacion(usuario.correo, usuario.nombre_completo, nuevo_otp, "VERIFICAR_CORREO")
+        return {
+            "requiere_verificacion": True,
+            "correo": usuario.correo,
+            "mensaje": f"Se envió un correo de verificación a {usuario.correo}. Ingresa el código para activar tu cuenta."
+        }
+
+    info_sem = calcular_semestre_vigente(usuario)
+    return {
+        "usuario": {
+            "id": usuario.id, "nombre": usuario.nombre_completo, "matricula": usuario.matricula,
+            "correo": usuario.correo, "foto_url": usuario.foto_url, "es_itics": usuario.es_itics,
+            "cuenta_verificada": True,
+            "semestre_actual": info_sem["semestre_calculado"], "detalle_semestre": info_sem["explicacion"]
+        }
+    }
+
+@app.post("/api/auth/recuperar-solicitar")
+def solicitar_recuperacion_por_correo(correo: str = Form(...), db: Session = Depends(get_db)):
+    correo_limpio = correo.strip().lower()
+    usuario = db.query(Usuario).filter(Usuario.correo == correo_limpio).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="No encontramos ninguna cuenta registrada con ese correo electrónico.")
+
+    codigo_otp = generar_otp_6_digitos()
+    usuario.otp_hash = hashear_secreto(codigo_otp)
+    usuario.otp_expiracion = datetime.utcnow() + timedelta(minutes=15)
+    usuario.otp_proposito = "RECUPERAR_PASSWORD"
+    usuario.otp_intentos = 0
+    db.commit()
+
+    enviar_correo_verificacion(usuario.correo, usuario.nombre_completo, codigo_otp, "RECUPERAR_PASSWORD")
+    return {
+        "correo": usuario.correo,
+        "mensaje": f"Se ha enviado un correo de recuperación con un código de 6 dígitos a {usuario.correo}."
+    }
+
+@app.post("/api/auth/recuperar-confirmar")
+def confirmar_nueva_password(
+    correo: str = Form(...),
+    codigo: str = Form(...),
+    nueva_password: str = Form(...),
+    confirmar_password: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    if nueva_password != confirmar_password:
+        raise HTTPException(status_code=400, detail="Las contraseñas no coinciden.")
+    if len(nueva_password) < 6:
+        raise HTTPException(status_code=400, detail="La nueva contraseña debe tener mínimo 6 caracteres.")
+
+    usuario = db.query(Usuario).filter(Usuario.correo == correo.strip().lower()).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Cuenta no encontrada.")
+
+    if usuario.otp_intentos >= 5:
+        raise HTTPException(status_code=429, detail="Demasiados intentos fallidos. Solicita un nuevo código.")
+
+    if not usuario.otp_expiracion or datetime.utcnow() > usuario.otp_expiracion:
+        raise HTTPException(status_code=400, detail="El código de verificación ha expirado.")
+
+    if not usuario.otp_hash or not verificar_secreto(codigo.strip(), usuario.otp_hash):
+        usuario.otp_intentos += 1
+        db.commit()
+        restantes = max(0, 5 - usuario.otp_intentos)
+        raise HTTPException(status_code=400, detail=f"Código incorrecto. Intentos restantes: {restantes}.")
+
+    usuario.password_hash = hashear_secreto(nueva_password)
+    usuario.cuenta_verificada = True
+    usuario.otp_hash = None
+    usuario.otp_expiracion = None
+    usuario.otp_proposito = None
+    usuario.otp_intentos = 0
+    db.commit()
+
+    return {"mensaje": "Tu contraseña se actualizó correctamente. Ya puedes iniciar sesión."}
+
+# --- MOTOR DE ANÁLISIS IA DE EVIDENCIAS Y PORTAFOLIO ---
 DICCIONARIO_TECNOLOGIAS = {
     "Python": [r"\bpython\b", r"\.py\b", r"\bfastapi\b", r"\bflask\b", r"\bdjango\b", r"\bpandas\b"],
     "SQL / Bases de Datos": [r"\bsql\b", r"\bpostgres", r"\bmysql\b", r"\bsqlite\b", r"\bsupabase\b", r"entidad-relaci", r"\bselect\b", r"\bcreate table\b"],
@@ -136,22 +491,15 @@ def extraer_texto_de_archivo(nombre: str, contenido: bytes) -> str:
         try:
             from pypdf import PdfReader
             lector = PdfReader(io.BytesIO(contenido))
-            paginas_texto = []
-            for page in lector.pages[:10]:
-                paginas_texto.append(page.extract_text() or "")
+            paginas_texto = [page.extract_text() or "" for page in lector.pages[:10]]
             texto_extraido += " ".join(paginas_texto)
         except Exception:
-            try:
-                texto_crudo = contenido.decode("utf-8", errors="ignore")
-                palabras = re.findall(r"[A-Za-zÁÉÍÓÚáéíóúñÑ0-9_\-\.]{4,}", texto_crudo)
-                texto_extraido += " ".join(palabras[:1000])
-            except Exception:
-                pass
+            pass
     elif ext == ".zip":
         try:
             with zipfile.ZipFile(io.BytesIO(contenido)) as z:
                 lista_interna = z.namelist()
-                texto_extraido += "Contiene archivos comprimidos: " + ", ".join(lista_interna[:50])
+                texto_extraido += "Contiene: " + ", ".join(lista_interna[:50])
                 for item in lista_interna[:8]:
                     if item.endswith((".py", ".kt", ".java", ".sql", ".html", ".js", ".md", ".txt", ".pl")):
                         muestra = z.read(item).decode("utf-8", errors="ignore")[:1000]
@@ -159,10 +507,7 @@ def extraer_texto_de_archivo(nombre: str, contenido: bytes) -> str:
         except Exception:
             pass
     elif ext in [".py", ".kt", ".java", ".sql", ".js", ".jsx", ".ts", ".html", ".css", ".pl", ".txt", ".md", ".json", ".csv"]:
-        try:
-            texto_extraido += contenido.decode("utf-8", errors="ignore")[:5000]
-        except Exception:
-            pass
+        texto_extraido += contenido.decode("utf-8", errors="ignore")[:5000]
     return texto_extraido
 
 def analizar_evidencia_con_ia(titulo: str, descripcion: str, materia_nombre: str, textos_archivos: List[str], url_externa: str = "") -> dict:
@@ -203,159 +548,6 @@ def clasificar_extension(filename: str) -> TipoEvidencia:
         return TipoEvidencia.VIDEO
     return TipoEvidencia.OTRO
 
-# --- ENDPOINTS DE AUTENTICACIÓN CON VERIFICACIÓN OBLIGATORIA TIPO GOOGLE ---
-@app.post("/api/auth/registro", status_code=201)
-async def registrar_estudiante(
-    nombre_completo: str = Form(...),
-    matricula: str = Form(...),
-    correo: str = Form(...),
-    password: str = Form(...),
-    es_itics: bool = Form(True),
-    modo_semestre: str = Form("AUTOMATICO"),
-    semestre_base: int = Form(1),
-    fecha_inicio_semestre: Optional[str] = Form(None),
-    fecha_fin_semestre: Optional[str] = Form(None),
-    foto: Optional[UploadFile] = File(None),
-    db: Session = Depends(get_db)
-):
-    matricula_limpia = matricula.strip().upper()
-    correo_limpio = correo.strip().lower()
-
-    patron_correo = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
-    if not re.match(patron_correo, correo_limpio):
-        raise HTTPException(status_code=400, detail="El formato del correo electrónico no es válido.")
-
-    existente = db.query(Usuario).filter(
-        (Usuario.matricula == matricula_limpia) | (Usuario.correo == correo_limpio)
-    ).first()
-    if existente:
-        raise HTTPException(status_code=400, detail="Ese Número de Control o Correo ya está registrado.")
-
-    foto_ruta = None
-    if foto and foto.filename:
-        carpeta_perfil = os.path.join(UPLOAD_DIR, "perfiles")
-        os.makedirs(carpeta_perfil, exist_ok=True)
-        nombre_foto = f"{matricula_limpia}_{uuid.uuid4().hex[:6]}_{foto.filename}"
-        ruta_fisica = os.path.join(carpeta_perfil, nombre_foto)
-        with open(ruta_fisica, "wb") as f:
-            f.write(await foto.read())
-        foto_ruta = f"/archivos/perfiles/{nombre_foto}"
-
-    codigo_activacion = str(random.randint(100000, 999999))
-    carrera = db.query(Carrera).filter_by(clave_oficial="ITIC-2010-225").first()
-    nuevo = Usuario(
-        nombre_completo=nombre_completo.strip(),
-        matricula=matricula_limpia,
-        correo=correo_limpio,
-        password_hash=hashlib.sha256(password.encode()).hexdigest(),
-        foto_url=foto_ruta,
-        es_itics=es_itics,
-        modo_semestre=modo_semestre,
-        semestre_base=semestre_base,
-        fecha_inicio_semestre=fecha_inicio_semestre if fecha_inicio_semestre else None,
-        fecha_fin_semestre=fecha_fin_semestre if fecha_fin_semestre else None,
-        carrera_id=carrera.id if carrera else None,
-        cuenta_verificada=False,
-        codigo_recuperacion=codigo_activacion,
-        expiracion_codigo=datetime.utcnow() + timedelta(minutes=15)
-    )
-    db.add(nuevo)
-    db.commit()
-
-    # Enviar correo real (o imprimir en consola si no hay SMTP configurado)
-    cuerpo_correo = f"Hola {nuevo.nombre_completo},\n\nTu código de verificación de 6 dígitos es: {codigo_activacion}\n\nIngrésalo en la plataforma para activar tu cuenta de Portafolio ITP."
-    enviar_correo_real(nuevo.correo, "Código de Verificación - Portafolio ITP", cuerpo_correo)
-
-    return {"requiere_verificacion": True, "correo": nuevo.correo, "mensaje": "Te hemos enviado un código de 6 dígitos a tu correo."}
-
-@app.post("/api/auth/verificar-cuenta")
-def verificar_cuenta_nueva(correo: str = Form(...), codigo: str = Form(...), db: Session = Depends(get_db)):
-    usuario = db.query(Usuario).filter(Usuario.correo == correo.strip().lower()).first()
-    if not usuario:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
-    if usuario.codigo_recuperacion != codigo.strip():
-        raise HTTPException(status_code=400, detail="El código es incorrecto.")
-    if datetime.utcnow() > usuario.expiracion_codigo:
-        raise HTTPException(status_code=400, detail="El código expiró.")
-
-    usuario.cuenta_verificada = True
-    usuario.codigo_recuperacion = None
-    usuario.expiracion_codigo = None
-    db.commit()
-
-    info_sem = calcular_semestre_vigente(usuario)
-    return {
-        "usuario": {
-            "id": usuario.id, "nombre": usuario.nombre_completo, "matricula": usuario.matricula,
-            "correo": usuario.correo, "foto_url": usuario.foto_url, "es_itics": usuario.es_itics,
-            "semestre_actual": info_sem["semestre_calculado"], "detalle_semestre": info_sem["explicacion"]
-        }
-    }
-
-@app.post("/api/auth/login")
-def login_estudiante(identificador: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
-    ident = identificador.strip()
-    usuario = db.query(Usuario).filter((Usuario.matricula == ident.upper()) | (Usuario.correo == ident.lower())).first()
-    hash_ingresado = hashlib.sha256(password.encode()).hexdigest()
-
-    if not usuario or usuario.password_hash != hash_ingresado:
-        raise HTTPException(status_code=401, detail="Número de control/correo o contraseña incorrectos.")
-
-    if not usuario.cuenta_verificada:
-        # Re-enviar código si no verificó su cuenta
-        codigo_activacion = str(random.randint(100000, 999999))
-        usuario.codigo_recuperacion = codigo_activacion
-        usuario.expiracion_codigo = datetime.utcnow() + timedelta(minutes=15)
-        db.commit()
-        cuerpo_correo = f"Hola {usuario.nombre_completo},\n\nTu cuenta no ha sido activada. Tu código de verificación es: {codigo_activacion}"
-        enviar_correo_real(usuario.correo, "Activación de Cuenta - Portafolio ITP", cuerpo_correo)
-        return {"requiere_verificacion": True, "correo": usuario.correo, "mensaje": "Tu cuenta no está verificada. Te hemos enviado un nuevo código."}
-
-    info_sem = calcular_semestre_vigente(usuario)
-    return {
-        "usuario": {
-            "id": usuario.id, "nombre": usuario.nombre_completo, "matricula": usuario.matricula,
-            "correo": usuario.correo, "foto_url": usuario.foto_url, "es_itics": usuario.es_itics,
-            "semestre_actual": info_sem["semestre_calculado"], "detalle_semestre": info_sem["explicacion"]
-        }
-    }
-
-@app.post("/api/auth/solicitar-codigo")
-def solicitar_codigo_recuperacion(correo_o_matricula: str = Form(...), db: Session = Depends(get_db)):
-    ident = correo_o_matricula.strip()
-    usuario = db.query(Usuario).filter((Usuario.matricula == ident.upper()) | (Usuario.correo == ident.lower())).first()
-    
-    if not usuario:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado en el sistema.")
-        
-    codigo = str(random.randint(100000, 999999))
-    usuario.codigo_recuperacion = codigo
-    usuario.expiracion_codigo = datetime.utcnow() + timedelta(minutes=15)
-    db.commit()
-    
-    cuerpo_correo = f"Hola {usuario.nombre_completo},\n\nHemos recibido una solicitud para recuperar tu contraseña.\n\nTu código de recuperación es: {codigo}\n\nSi no fuiste tú, ignora este mensaje."
-    exito = enviar_correo_real(usuario.correo, "Recuperación de Contraseña - Portafolio ITP", cuerpo_correo)
-    
-    return {"mensaje": f"Se ha enviado un código de 6 dígitos a tu correo: {usuario.correo}"}
-
-@app.post("/api/auth/restablecer-password")
-def restablecer_password(correo_o_matricula: str = Form(...), codigo: str = Form(...), nueva_password: str = Form(...), db: Session = Depends(get_db)):
-    ident = correo_o_matricula.strip()
-    usuario = db.query(Usuario).filter((Usuario.matricula == ident.upper()) | (Usuario.correo == ident.lower())).first()
-    if not usuario: raise HTTPException(status_code=404, detail="Usuario no encontrado.")
-    if not usuario.codigo_recuperacion or usuario.codigo_recuperacion != codigo.strip():
-        raise HTTPException(status_code=401, detail="El código de verificación es incorrecto.")
-    if not usuario.expiracion_codigo or datetime.utcnow() > usuario.expiracion_codigo:
-        raise HTTPException(status_code=401, detail="El código expiró.")
-        
-    usuario.password_hash = hashlib.sha256(nueva_password.encode()).hexdigest()
-    usuario.codigo_recuperacion = None
-    usuario.expiracion_codigo = None
-    usuario.cuenta_verificada = True # Por si acaso recuperó sin verificar
-    db.commit()
-    return {"mensaje": "Contraseña actualizada exitosamente. Ya puedes iniciar sesión con tu nueva contraseña."}
-
-# --- ENDPOINTS RETÍCULA, SUBIDA Y CV SE MANTIENEN IGUAL ---
 @app.get("/api/reticula/materias")
 def listar_materias(estudiante_id: Optional[int] = None, db: Session = Depends(get_db)):
     materias = db.query(Materia).order_by(Materia.semestre, Materia.id).all()
@@ -367,8 +559,8 @@ def listar_materias(estudiante_id: Optional[int] = None, db: Session = Depends(g
 
 @app.post("/api/evidencias/subir", status_code=201)
 async def subir_evidencia(estudiante_id: int = Form(...), titulo: str = Form(...), descripcion: str = Form(""), materia_id: int = Form(...), url_enlace_externo: Optional[str] = Form(None), archivos: List[UploadFile] = File(default=[]), db: Session = Depends(get_db)):
-    usuario = db.query(Usuario).filter(Usuario.id == estudiante_id).first()
-    if not usuario: raise HTTPException(status_code=404, detail="Primero debes iniciar sesión.")
+    usuario = db.query(Usuario).filter(Usuario.id == estudiante_id, Usuario.cuenta_verificada == True).first()
+    if not usuario: raise HTTPException(status_code=403, detail="Tu cuenta debe estar verificada para subir archivos.")
     materia = db.query(Materia).filter(Materia.id == materia_id).first()
     competencia = db.query(Competencia).filter(Competencia.materia_id == materia.id).first()
     archivos_validos = [a for a in archivos if a.filename]
@@ -381,7 +573,6 @@ async def subir_evidencia(estudiante_id: int = Form(...), titulo: str = Form(...
     carpeta_destino = os.path.join(UPLOAD_DIR, usuario.matricula, f"materia_{materia.id}", f"evidencia_{nueva_evidencia.id}")
     os.makedirs(carpeta_destino, exist_ok=True)
     textos_para_ia = []
-    resumen_archivos_guardados = []
 
     for arch in archivos_validos:
         nombre_limpio = arch.filename
@@ -398,7 +589,6 @@ async def subir_evidencia(estudiante_id: int = Form(...), titulo: str = Form(...
         ruta_url = f"/archivos/{usuario.matricula}/materia_{materia.id}/evidencia_{nueva_evidencia.id}/{identificador_unico}"
         registro_archivo = ArchivoEvidencia(evidencia_id=nueva_evidencia.id, nombre_original=nombre_limpio, ruta_servidor=ruta_url, mime_type=mime_detectado, tipo_archivo=tipo_arch, tamano_bytes=tamano, sha256_hash=hash_sha256, resumen_extraido_ia=texto_interno[:300])
         db.add(registro_archivo)
-        resumen_archivos_guardados.append({"nombre": nombre_limpio, "url": ruta_url, "sha256": hash_sha256})
 
     resultado_ia = analizar_evidencia_con_ia(titulo, descripcion, materia.nombre, textos_para_ia, url_enlace_externo or "")
     nueva_evidencia.tags_ia_detectados = ", ".join(resultado_ia["tecnologias"])
@@ -443,12 +633,7 @@ def obtener_portafolio_curricular(estudiante_id: int, db: Session = Depends(get_
     perfil_ia = f"Estudiante de {info_sem['semestre_calculado']}° semestre de Ingeniería en TICs en el Instituto Tecnológico de Puebla con {total_archivos_subidos} evidencias prácticas verificadas. " + (f"Dominio comprobado mediante análisis de código y documentos en: {', '.join(sorted(list(stack_ia_global)))}." if stack_ia_global else "Sube tu primer PDF, ZIP o código para que la IA construya tu perfil técnico.")
 
     return {
-        "estudiante": {"id": estudiante.id, "nombre": estudiante.nombre_completo, "matricula": estudiante.matricula, "correo": estudiante.correo, "foto_url": estudiante.foto_url, "es_itics": estudiante.es_itics, "semestre_actual": info_sem["semestre_calculado"], "modo_semestre": info_sem["modo"], "explicacion_semestre": info_sem["explicacion"], "carrera": "Ingeniería en Tecnologías de la Información y Comunicaciones (ITIC-2010-225)", "especialidad": "Análisis de Datos (ITIE-ADD-2025-01)", "perfil_ia": perfil_ia},
+        "estudiante": {"id": estudiante.id, "nombre": estudiante.nombre_completo, "matricula": estudiante.matricula, "correo": estudiante.correo, "foto_url": estudiante.foto_url, "es_itics": estudiante.es_itics, "cuenta_verificada": estudiante.cuenta_verificada, "semestre_actual": info_sem["semestre_calculado"], "modo_semestre": info_sem["modo"], "explicacion_semestre": info_sem["explicacion"], "carrera": "Ingeniería en Tecnologías de la Información y Comunicaciones (ITIC-2010-225)", "especialidad": "Análisis de Datos (ITIE-ADD-2025-01)", "perfil_ia": perfil_ia},
         "metricas": {"total_evidencias": len(evidencias), "total_archivos": total_archivos_subidos, "materias_con_evidencia": len(materias_ordenadas), "total_materias_reticula": total_materias_db, "porcentaje_reticula": round((len(materias_ordenadas) / total_materias_db) * 100, 1), "stack_dominado": sorted(list(stack_ia_global))},
         "portafolio_por_materia": materias_ordenadas
     }
-
-@app.get("/api/usuarios/directorio")
-def listar_todos_los_usuarios(db: Session = Depends(get_db)):
-    usuarios = db.query(Usuario).order_by(Usuario.fecha_registro.desc()).all()
-    return [{"id": u.id, "nombre": u.nombre_completo, "matricula": u.matricula, "correo": u.correo, "semestre": u.semestre_actual, "verificado": u.cuenta_verificada, "fecha_registro": u.fecha_registro.strftime("%Y-%m-%d %H:%M")} for u in usuarios]
