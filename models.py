@@ -72,16 +72,15 @@ class Usuario(Base):
     matricula = Column(String(20), unique=True, nullable=False, index=True)
     correo = Column(String(120), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
+    palabra_recuperacion_hash = Column(String(255), nullable=False) # NUEVO: Seguridad de recuperación
     foto_url = Column(String(500), nullable=True)
     es_itics = Column(Boolean, default=True)
     
-    # Gestión inteligente de semestre (Automático por fechas o Manual)
-    modo_semestre = Column(String(20), default="AUTOMATICO") # AUTOMATICO o MANUAL
+    modo_semestre = Column(String(20), default="AUTOMATICO")
     semestre_base = Column(Integer, default=1)
-    fecha_inicio_semestre = Column(String(20), nullable=True) # YYYY-MM-DD
-    fecha_fin_semestre = Column(String(20), nullable=True)    # YYYY-MM-DD
+    fecha_inicio_semestre = Column(String(20), nullable=True)
+    fecha_fin_semestre = Column(String(20), nullable=True)
     
-    # Perfil enriquecido por la IA
     resumen_ia_cv = Column(Text, nullable=True)
     rol = Column(Enum(RolUsuario), default=RolUsuario.ESTUDIANTE, nullable=False)
     fecha_registro = Column(DateTime, default=datetime.utcnow)
@@ -95,10 +94,10 @@ class Evidencia(Base):
     id = Column(Integer, primary_key=True, index=True)
     titulo = Column(String(200), nullable=False)
     descripcion = Column(Text, nullable=False)
-    analisis_ia = Column(Text, nullable=True) # Lo que la IA detectó dentro de los PDFs/ZIPs/Código
+    analisis_ia = Column(Text, nullable=True)
     tipo = Column(Enum(TipoEvidencia), default=TipoEvidencia.MULTIPLE, nullable=False)
     url_enlace_externo = Column(String(500), nullable=True)
-    tags_ia_detectados = Column(String(400), nullable=True) # Tecnologías extraídas por la IA
+    tags_ia_detectados = Column(String(400), nullable=True)
 
     estado = Column(Enum(EstadoEvidencia), default=EstadoEvidencia.VALIDADO, nullable=False)
     is_deleted = Column(Boolean, default=False)
