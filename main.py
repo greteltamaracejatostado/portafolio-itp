@@ -119,8 +119,11 @@ def verificar_correo_con_google_dns(correo: str) -> dict:
 
 # --- ENVÍO DE CORREO DE VERIFICACIÓN ---
 def enviar_correo_verificacion(destinatario: str, nombre: str, codigo_otp: str, proposito: str) -> bool:
-    remitente = os.getenv("SMTP_EMAIL")
-    password = os.getenv("SMTP_PASSWORD")
+    # --- RESPALDO ACTIVO: Valores hardcodeados si Render falla ---
+    remitente = os.getenv("SMTP_EMAIL", "reticulasproyectos@gmail.com")
+    
+    # ATENCIÓN: REEMPLAZA ESTO CON TUS 16 LETRAS DE GOOGLE
+    password = os.getenv("SMTP_PASSWORD", "AQUI_PON_TUS_16_LETRAS") 
 
     accion = "verificar tu correo electrónico y activar tu cuenta" if proposito == "VERIFICAR_CORREO" else "restablecer tu contraseña"
     html_body = f"""
@@ -139,8 +142,8 @@ def enviar_correo_verificacion(destinatario: str, nombre: str, codigo_otp: str, 
     </div>
     """
 
-    if not remitente or not password:
-        print(f"[SMTP NO CONFIGURADO] Correo destino: {destinatario} | Código: {codigo_otp}")
+    if password == "AQUI_PON_TUS_16_LETRAS" or not password:
+        print(f"[SMTP NO CONFIGURADO] Pon tu contraseña de aplicación en la línea 106. Código generado: {codigo_otp}")
         return False
 
     try:
@@ -155,6 +158,7 @@ def enviar_correo_verificacion(destinatario: str, nombre: str, codigo_otp: str, 
         server.login(remitente, password)
         server.send_message(msg)
         server.quit()
+        print(f"Correo enviado exitosamente a {destinatario}")
         return True
     except Exception as e:
         print("Error enviando SMTP:", e)
@@ -276,6 +280,9 @@ async def registrar_estudiante(
 
     enviado_real = enviar_correo_verificacion(usuario_obj.correo, usuario_obj.nombre_completo, codigo_otp, "VERIFICAR_CORREO")
 
+    if not enviado_real:
+        raise HTTPException(status_code=500, detail="Error en el servidor de correo. Verifica que la contraseña de 16 letras esté correctamente pegada en main.py.")
+
     return {
         "requiere_verificacion": True,
         "correo": usuario_obj.correo,
@@ -319,45 +326,6 @@ def verificar_codigo_correo(correo: str = Form(...), codigo: str = Form(...), db
         }
     }
 
-# --- VERIFICACIÓN DIRECTA CON TOKEN OFICIAL DE GOOGLE (OAUTH2 / GOOGLE IDENTITY) ---
-@app.post("/api/auth/google-verify")
-def verificar_con_google_token(
-    id_token: str = Form(...),
-    correo_esperado: Optional[str] = Form(None),
-    db: Session = Depends(get_db)
-):
-    try:
-        url = f"https://oauth2.googleapis.com/tokeninfo?id_token={id_token}"
-        with urllib.request.urlopen(url, timeout=5) as resp:
-            payload = json.loads(resp.read().decode("utf-8"))
-    except Exception:
-        raise HTTPException(status_code=401, detail="No se pudo validar la credencial con Google.")
-
-    if payload.get("email_verified") != "true":
-        raise HTTPException(status_code=400, detail="Tu cuenta de Google no tiene el correo verificado.")
-
-    email_google = payload.get("email", "").lower()
-    if correo_esperado and email_google != correo_esperado.strip().lower():
-        raise HTTPException(status_code=400, detail=f"Selecciona la misma cuenta de Google que registraste ({correo_esperado}).")
-
-    usuario = db.query(Usuario).filter(Usuario.correo == email_google).first()
-    if not usuario:
-        raise HTTPException(status_code=404, detail="Primero completa tus datos de estudiante en Crear Cuenta.")
-
-    usuario.cuenta_verificada = True
-    usuario.otp_hash = None
-    db.commit()
-
-    info_sem = calcular_semestre_vigente(usuario)
-    return {
-        "usuario": {
-            "id": usuario.id, "nombre": usuario.nombre_completo, "matricula": usuario.matricula,
-            "correo": usuario.correo, "foto_url": usuario.foto_url or payload.get("picture"),
-            "es_itics": usuario.es_itics, "cuenta_verificada": True,
-            "semestre_actual": info_sem["semestre_calculado"], "detalle_semestre": info_sem["explicacion"]
-        }
-    }
-
 @app.post("/api/auth/reenviar-codigo")
 def reenviar_codigo_verificacion(correo: str = Form(...), proposito: str = Form("VERIFICAR_CORREO"), db: Session = Depends(get_db)):
     usuario = db.query(Usuario).filter(Usuario.correo == correo.strip().lower()).first()
@@ -371,7 +339,10 @@ def reenviar_codigo_verificacion(correo: str = Form(...), proposito: str = Form(
     usuario.otp_intentos = 0
     db.commit()
 
-    enviar_correo_verificacion(usuario.correo, usuario.nombre_completo, nuevo_otp, proposito)
+    enviado = enviar_correo_verificacion(usuario.correo, usuario.nombre_completo, nuevo_otp, proposito)
+    if not enviado:
+        raise HTTPException(status_code=500, detail="No se pudo conectar con Gmail. Revisa la contraseña de aplicación en el código.")
+        
     return {"mensaje": f"Se ha enviado un nuevo correo con tu código de verificación a {usuario.correo}."}
 
 @app.post("/api/auth/login")
@@ -422,7 +393,10 @@ def solicitar_recuperacion_por_correo(correo: str = Form(...), db: Session = Dep
     usuario.otp_intentos = 0
     db.commit()
 
-    enviar_correo_verificacion(usuario.correo, usuario.nombre_completo, codigo_otp, "RECUPERAR_PASSWORD")
+    enviado = enviar_correo_verificacion(usuario.correo, usuario.nombre_completo, codigo_otp, "RECUPERAR_PASSWORD")
+    if not enviado:
+        raise HTTPException(status_code=500, detail="Error enviando el correo de recuperación.")
+        
     return {
         "correo": usuario.correo,
         "mensaje": f"Se ha enviado un correo de recuperación con un código de 6 dígitos a {usuario.correo}."
