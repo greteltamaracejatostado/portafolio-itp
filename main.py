@@ -43,7 +43,7 @@ def preparar_reticula():
 
 preparar_reticula()
 
-app = FastAPI(title="Portafolio Académico ITP - Plataforma Oficial", version="9.0.0")
+app = FastAPI(title="Portafolio Académico ITP - Plataforma Oficial", version="10.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -117,13 +117,15 @@ def verificar_correo_con_google_dns(correo: str) -> dict:
     except Exception:
         return {"valido": True, "mensaje": "Formato de correo válido."}
 
-# --- ENVÍO DE CORREO DE VERIFICACIÓN ---
+# --- ENVÍO DE CORREO DE VERIFICACIÓN (FORMA SEGURA CON VARIABLES DE ENTORNO) ---
 def enviar_correo_verificacion(destinatario: str, nombre: str, codigo_otp: str, proposito: str) -> bool:
-    # --- RESPALDO ACTIVO: Valores hardcodeados si Render falla ---
-    remitente = os.getenv("SMTP_EMAIL", "reticulasproyectos@gmail.com")
-    
-    # ATENCIÓN: REEMPLAZA ESTO CON TUS 16 LETRAS DE GOOGLE
-    password = os.getenv("SMTP_PASSWORD", "AQUI_PON_TUS_16_LETRAS") 
+    # El sistema lee las credenciales del servidor (Render), NUNCA del código fuente.
+    remitente = os.getenv("SMTP_EMAIL")
+    password = os.getenv("SMTP_PASSWORD")
+
+    if not remitente or not password:
+        print(f"[ERROR DE SEGURIDAD] Variables SMTP_EMAIL o SMTP_PASSWORD no configuradas en el servidor.")
+        return False
 
     accion = "verificar tu correo electrónico y activar tu cuenta" if proposito == "VERIFICAR_CORREO" else "restablecer tu contraseña"
     html_body = f"""
@@ -142,15 +144,11 @@ def enviar_correo_verificacion(destinatario: str, nombre: str, codigo_otp: str, 
     </div>
     """
 
-    if password == "AQUI_PON_TUS_16_LETRAS" or not password:
-        print(f"[SMTP NO CONFIGURADO] Pon tu contraseña de aplicación en la línea 106. Código generado: {codigo_otp}")
-        return False
-
     try:
         msg = MIMEMultipart("alternative")
         msg["From"] = f"Portafolio Académico ITP <{remitente}>"
         msg["To"] = destinatario
-        msg["Subject"] = f"{codigo_otp} es tu código de verificación - Portafolio ITP"
+        msg["Subject"] = f"{codigo_otp} es tu código de seguridad - Portafolio ITP"
         msg.attach(MIMEText(html_body, "html"))
 
         server = smtplib.SMTP("smtp.gmail.com", 587, timeout=10)
@@ -158,10 +156,9 @@ def enviar_correo_verificacion(destinatario: str, nombre: str, codigo_otp: str, 
         server.login(remitente, password)
         server.send_message(msg)
         server.quit()
-        print(f"Correo enviado exitosamente a {destinatario}")
         return True
     except Exception as e:
-        print("Error enviando SMTP:", e)
+        print("Error interno enviando SMTP:", e)
         return False
 
 def calcular_semestre_vigente(usuario: Usuario) -> dict:
@@ -182,14 +179,12 @@ def calcular_semestre_vigente(usuario: Usuario) -> dict:
         return {"semestre_calculado": sem_base, "modo": "Manual", "explicacion": f"Semestre {sem_base}° activo."}
 
 # --- ENDPOINTS DE VALIDACIÓN, REGISTRO, VERIFICACIÓN Y RECUPERACIÓN ---
-
 @app.post("/api/auth/validar-correo")
 def endpoint_validar_correo(correo: str = Form(...), db: Session = Depends(get_db)):
     correo_limpio = correo.strip().lower()
     validacion = verificar_correo_con_google_dns(correo_limpio)
     if not validacion["valido"]:
         raise HTTPException(status_code=400, detail=validacion["motivo"])
-
     ya_existe = db.query(Usuario).filter(Usuario.correo == correo_limpio, Usuario.cuenta_verificada == True).first()
     if ya_existe:
         raise HTTPException(status_code=400, detail="Este correo electrónico ya está registrado. Inicia sesión.")
@@ -281,12 +276,12 @@ async def registrar_estudiante(
     enviado_real = enviar_correo_verificacion(usuario_obj.correo, usuario_obj.nombre_completo, codigo_otp, "VERIFICAR_CORREO")
 
     if not enviado_real:
-        raise HTTPException(status_code=500, detail="Error en el servidor de correo. Verifica que la contraseña de 16 letras esté correctamente pegada en main.py.")
+        # Error estricto si el servidor no tiene las llaves bien configuradas
+        raise HTTPException(status_code=500, detail="Error de seguridad en el servidor: Las variables de entorno SMTP_EMAIL o SMTP_PASSWORD no están configuradas correctamente en Render.")
 
     return {
         "requiere_verificacion": True,
         "correo": usuario_obj.correo,
-        "smtp_activo": enviado_real,
         "mensaje": f"Te hemos enviado un correo electrónico de verificación con un código de 6 dígitos a {usuario_obj.correo}."
     }
 
@@ -295,13 +290,10 @@ def verificar_codigo_correo(correo: str = Form(...), codigo: str = Form(...), db
     usuario = db.query(Usuario).filter(Usuario.correo == correo.strip().lower()).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="No se encontró la cuenta asociada a este correo.")
-
     if usuario.otp_intentos >= 5:
         raise HTTPException(status_code=429, detail="Se agotaron los intentos permitidos. Haz clic en Reenviar código.")
-
     if not usuario.otp_expiracion or datetime.utcnow() > usuario.otp_expiracion:
         raise HTTPException(status_code=400, detail="El código de verificación ha expirado. Solicita uno nuevo.")
-
     if not usuario.otp_hash or not verificar_secreto(codigo.strip(), usuario.otp_hash):
         usuario.otp_intentos += 1
         db.commit()
@@ -314,7 +306,6 @@ def verificar_codigo_correo(correo: str = Form(...), codigo: str = Form(...), db
     usuario.otp_proposito = None
     usuario.otp_intentos = 0
     db.commit()
-
     info_sem = calcular_semestre_vigente(usuario)
     return {
         "mensaje": "Correo verificado correctamente. Bienvenido(a) a tu Portafolio Académico.",
@@ -341,7 +332,7 @@ def reenviar_codigo_verificacion(correo: str = Form(...), proposito: str = Form(
 
     enviado = enviar_correo_verificacion(usuario.correo, usuario.nombre_completo, nuevo_otp, proposito)
     if not enviado:
-        raise HTTPException(status_code=500, detail="No se pudo conectar con Gmail. Revisa la contraseña de aplicación en el código.")
+        raise HTTPException(status_code=500, detail="Fallo de autenticación SMTP en el servidor Render.")
         
     return {"mensaje": f"Se ha enviado un nuevo correo con tu código de verificación a {usuario.correo}."}
 
@@ -395,7 +386,7 @@ def solicitar_recuperacion_por_correo(correo: str = Form(...), db: Session = Dep
 
     enviado = enviar_correo_verificacion(usuario.correo, usuario.nombre_completo, codigo_otp, "RECUPERAR_PASSWORD")
     if not enviado:
-        raise HTTPException(status_code=500, detail="Error enviando el correo de recuperación.")
+        raise HTTPException(status_code=500, detail="Error enviando el correo de recuperación desde el servidor.")
         
     return {
         "correo": usuario.correo,
