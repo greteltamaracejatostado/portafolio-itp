@@ -4,4 +4,4 @@ sqlalchemy
 python-multipart
 pypdf
 google-genai
-dnspythonpip install dnspython
+dnspython
