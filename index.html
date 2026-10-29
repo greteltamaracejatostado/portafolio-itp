@@ -1,338 +1,848 @@
 <!DOCTYPE html>
-<html lang="es" class="scroll-smooth">
+<html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Syntax Alpha - Portafolio Académico ITP</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts: Inter & Space Grotesk (Para un toque más tech) -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
-    
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                        tech: ['Space Grotesk', 'sans-serif'],
-                    },
-                    colors: {
-                        brand: {
-                            dark: '#030712', // Gris muy oscuro/negro
-                            blue: '#0a192f', // Azul marino profundo
-                            accent: '#3b82f6', // Azul vibrante
-                            glow: '#60a5fa', // Azul claro para resplandores
-                        }
-                    },
-                    animation: {
-                        'blob': 'blob 10s infinite',
-                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                    },
-                    keyframes: {
-                        blob: {
-                            '0%': { transform: 'translate(0px, 0px) scale(1)' },
-                            '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
-                            '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
-                            '100%': { transform: 'translate(0px, 0px) scale(1)' },
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        /* Estilos personalizados para efectos que Tailwind no cubre nativamente */
-        body {
-            background-color: #030712;
-            color: #f3f4f6;
-            /* Fondo base oscuro */
-        }
-        
-        /* Fondo de ondas/abstracto azul simulado con CSS */
-        .bg-waves {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: -1;
-            overflow: hidden;
-            background: linear-gradient(135deg, #030712 0%, #081121 50%, #030712 100%);
-        }
-
-        .wave-glow-1 {
-            position: absolute;
-            top: -10%;
-            right: -5%;
-            width: 60vw;
-            height: 60vw;
-            background: radial-gradient(circle, rgba(29,78,216,0.15) 0%, rgba(3,7,18,0) 70%);
-            border-radius: 50%;
-            filter: blur(60px);
-        }
-
-        .wave-glow-2 {
-            position: absolute;
-            bottom: -20%;
-            left: -10%;
-            width: 70vw;
-            height: 70vw;
-            background: radial-gradient(circle, rgba(14,165,233,0.1) 0%, rgba(3,7,18,0) 70%);
-            border-radius: 50%;
-            filter: blur(80px);
-        }
-
-        /* Glassmorphism Classes */
-        .glass-card {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-        }
-
-        .glass-header {
-            background: rgba(3, 7, 18, 0.7);
-            backdrop-filter: blur(20px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        /* Botones Glowing */
-        .btn-glow {
-            position: relative;
-            transition: all 0.3s ease;
-        }
-        .btn-glow:hover {
-            box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
-            transform: translateY(-1px);
-        }
-
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #030712;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #1e293b;
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #334155;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portafolio Académico ITP - Plataforma Oficial ITICs</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
-<body class="antialiased min-h-screen flex flex-col relative selection:bg-blue-500/30">
+<body class="bg-slate-950 text-slate-100">
+  <div id="root"></div>
 
-    <!-- Fondo Animado Abstracto -->
-    <div class="bg-waves">
-        <div class="wave-glow-1 animate-blob"></div>
-        <div class="wave-glow-2 animate-blob" style="animation-delay: 2s;"></div>
-        <!-- Líneas diagonales tecnológicas -->
-        <div class="absolute inset-0 opacity-[0.03]" style="background-image: repeating-linear-gradient(45deg, #fff 0, #fff 1px, transparent 0, transparent 50%); background-size: 100px 100px;"></div>
-    </div>
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+    const API_BASE = window.location.origin.includes("http") ? window.location.origin : "http://localhost:8000";
 
-    <!-- Navegación Superior (Navbar) -->
-    <nav class="glass-header sticky top-0 z-50 w-full px-6 py-4 flex justify-between items-center">
-        <!-- Logo Syntax Alpha -->
-        <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-400 flex items-center justify-center shadow-[0_0_15px_rgba(59,130,246,0.4)]">
-                <span class="font-tech font-bold text-white text-xl tracking-tighter">SA</span>
-            </div>
-            <span class="font-tech font-bold text-xl tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
-                Syntax Alpha
-            </span>
-        </div>
-        
-        <div class="hidden md:flex items-center gap-6">
-            <span class="text-sm font-medium text-gray-400">Portafolio Académico ITP</span>
-            <span class="text-sm font-medium px-3 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">ITICs</span>
-            <button class="text-gray-300 hover:text-white transition-colors">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-            </button>
-        </div>
-    </nav>
+    function PortafolioITPApp() {
+      const [usuarioActivo, setUsuarioActivo] = useState(() => {
+        try {
+          const guardado = localStorage.getItem("itp_usuario_sesion");
+          return guardado ? JSON.parse(guardado) : null;
+        } catch { return null; }
+      });
 
-    <!-- Contenedor Principal -->
-    <main class="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-10 max-w-5xl">
-        
-        <!-- SECCIÓN 1: Perfil CV (Glassmorphism Card) -->
-        <section class="glass-card rounded-3xl p-8 mb-10 relative overflow-hidden group">
-            <!-- Brillo interno sutil en hover -->
-            <div class="absolute inset-0 bg-gradient-to-r from-blue-600/0 via-blue-600/5 to-cyan-400/0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
-            
-            <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-8">
+      const [vistaActual, setVistaActual] = useState(usuarioActivo ? "portafolio" : "inicio");
+      const [materias, setMaterias] = useState([]);
+
+      // Flujos de Autenticación: "registro" | "verificar_correo" | "login" | "recuperar_correo" | "recuperar_nueva_clave"
+      const [modoAuth, setModoAuth] = useState("registro");
+      const [nombreReg, setNombreReg] = useState("");
+      const [matriculaReg, setMatriculaReg] = useState("");
+      const [correoReg, setCorreoReg] = useState("");
+      const [passwordReg, setPasswordReg] = useState("");
+      const [confirmarPasswordReg, setConfirmarPasswordReg] = useState("");
+      const [modoSemestreReg, setModoSemestreReg] = useState("AUTOMATICO");
+      const [semestreManualReg, setSemestreManualReg] = useState(1);
+      const [fechaInicioReg, setFechaInicioReg] = useState("");
+      const [fechaFinReg, setFechaFinReg] = useState("");
+      const [fotoReg, setFotoReg] = useState(null);
+
+      // Validación directa con la API oficial de Google Public DNS (Nunca da 404 Not Found)
+      const [estadoCorreoMX, setEstadoCorreoMX] = useState(null);
+      const [validandoMX, setValidandoMX] = useState(false);
+
+      // Estados para Verificación de 2 Pasos (6 dígitos)
+      const [correoEnProceso, setCorreoEnProceso] = useState("");
+      const [digitosOTP, setDigitosOTP] = useState(["", "", "", "", "", ""]);
+      const [errorAuth, setErrorAuth] = useState(null);
+      const [procesandoAuth, setProcesandoAuth] = useState(false);
+      const inputsRef = useRef([]);
+
+      // Estados de Subida de Evidencias e IA
+      const [materiaSeleccionada, setMateriaSeleccionada] = useState("");
+      const [titulo, setTitulo] = useState("");
+      const [descripcion, setDescripcion] = useState("");
+      const [urlExterna, setUrlExterna] = useState("");
+      const [colaArchivos, setColaArchivos] = useState([]);
+      const [subiendo, setSubiendo] = useState(false);
+      const [alerta, setAlerta] = useState(null);
+
+      // Estados de Portafolio / CV
+      const [datosPortafolio, setDatosPortafolio] = useState(null);
+      const [semestreActivoHistorial, setSemestreActivoHistorial] = useState("TODOS");
+      const [archivoEnVisor, setArchivoEnVisor] = useState(null);
+      const [textoCodigoVisor, setTextoCodigoVisor] = useState("");
+
+      const cargarDatosUsuario = async (userObj = usuarioActivo) => {
+        try {
+          const idParam = userObj ? `?estudiante_id=${userObj.id}` : "";
+          const rMat = await fetch(`${API_BASE}/api/reticula/materias${idParam}`);
+          if (rMat.ok) {
+            const dataMat = await rMat.json();
+            if (Array.isArray(dataMat)) {
+              setMaterias(dataMat);
+              if (dataMat.length > 0 && !materiaSeleccionada) setMateriaSeleccionada(dataMat[0].id);
+            }
+          }
+          if (userObj) {
+            const rPort = await fetch(`${API_BASE}/api/portafolio/${userObj.id}`);
+            if (rPort.ok) setDatosPortafolio(await rPort.json());
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      };
+
+      useEffect(() => { cargarDatosUsuario(); }, [usuarioActivo]);
+
+      // Verificación en vivo usando directamente Google Public DNS (https://dns.google/resolve)
+      const verificarCorreoConGoogleDNS = async (emailValor) => {
+        const limpio = (emailValor || "").trim().toLowerCase();
+        if (!limpio) {
+          setEstadoCorreoMX(null);
+          return false;
+        }
+        const regexEmail = /^[a-zA-Z0-9][a-zA-Z0-9_.+-]{1,62}@[a-zA-Z0-9-]+\.[a-zA-Z]{2,}$/;
+        if (!regexEmail.test(limpio)) {
+          setEstadoCorreoMX({ valido: false, texto: "Ingresa un formato de correo electrónico válido (ejemplo: usuario@gmail.com)." });
+          return false;
+        }
+
+        const [userPart, dominio] = limpio.split("@");
+        const typos = { "gmal.com": "gmail.com", "gamil.com": "gmail.com", "gmial.com": "gmail.com", "hotmal.com": "hotmail.com", "outlok.com": "outlook.com" };
+        if (typos[dominio]) {
+          setEstadoCorreoMX({ valido: false, texto: `El dominio parece mal escrito. ¿Quisiste decir ${userPart}@${typos[dominio]}?` });
+          return false;
+        }
+
+        const bloqueados = ["tail.com", "test.com", "example.com", "mailinator.com", "tempmail.com", "yopmail.com", "fake.com"];
+        if (bloqueados.includes(dominio)) {
+          setEstadoCorreoMX({ valido: false, texto: `El dominio @${dominio} no es un correo válido. Usa una cuenta real (Gmail, Outlook, iCloud, institucional).` });
+          return false;
+        }
+
+        setValidandoMX(true);
+        try {
+          const resp = await fetch(`https://dns.google/resolve?name=${encodeURIComponent(dominio)}&type=MX`);
+          const data = await resp.json();
+          if (data.Status === 0 && Array.isArray(data.Answer) && data.Answer.length > 0) {
+            setEstadoCorreoMX({
+              valido: true,
+              texto: `Correo válido verificado (${dominio}). Al crear tu cuenta se enviará un correo con tu código de verificación.`
+            });
+            return true;
+          } else {
+            setEstadoCorreoMX({
+              valido: false,
+              texto: `El dominio @${dominio} no existe o no tiene servidores de correo activos.`
+            });
+            return false;
+          }
+        } catch {
+          setEstadoCorreoMX({
+            valido: true,
+            texto: "Formato de correo válido. Se enviará un correo de verificación para confirmar tu cuenta."
+          });
+          return true;
+        } finally {
+          setValidandoMX(false);
+        }
+      };
+
+      const cambiarDigitoOTP = (index, valor) => {
+        const soloNumero = valor.replace(/[^0-9]/g, "").slice(-1);
+        const nuevos = [...digitosOTP];
+        nuevos[index] = soloNumero;
+        setDigitosOTP(nuevos);
+        if (soloNumero && index < 5 && inputsRef.current[index + 1]) {
+          inputsRef.current[index + 1].focus();
+        }
+      };
+
+      const pegarCodigoCompleto = (e) => {
+        const pegado = e.clipboardData.getData("text").replace(/[^0-9]/g, "").slice(0, 6);
+        if (pegado.length > 0) {
+          const nuevos = ["", "", "", "", "", ""];
+          for (let i = 0; i < pegado.length; i++) nuevos[i] = pegado[i];
+          setDigitosOTP(nuevos);
+        }
+      };
+
+      // PASO 1 REGISTRO: Crear cuenta y enviar correo de verificación
+      const manejarRegistro = async (e) => {
+        e.preventDefault();
+        setErrorAuth(null);
+
+        const esCorreoValido = await verificarCorreoConGoogleDNS(correoReg);
+        if (!esCorreoValido) {
+          setErrorAuth({ tipo: "error", msg: "Por favor ingresa un correo electrónico real y válido antes de continuar." });
+          return;
+        }
+
+        setProcesandoAuth(true);
+        const fd = new FormData();
+        fd.append("nombre_completo", nombreReg);
+        fd.append("matricula", matriculaReg);
+        fd.append("correo", correoReg.trim().toLowerCase());
+        fd.append("password", passwordReg);
+        fd.append("es_itics", true);
+        fd.append("modo_semestre", modoSemestreReg);
+        fd.append("semestre_base", semestreManualReg);
+        if (modoSemestreReg === "AUTOMATICO" && fechaInicioReg && fechaFinReg) {
+          fd.append("fecha_inicio_semestre", fechaInicioReg);
+          fd.append("fecha_fin_semestre", fechaFinReg);
+        }
+        if (fotoReg) fd.append("foto", fotoReg);
+
+        try {
+          const res = await fetch(`${API_BASE}/api/auth/registro`, { method: "POST", body: fd });
+          const data = await res.json();
+          if (res.ok) {
+            if (data.requiere_verificacion) {
+              setCorreoEnProceso(data.correo || correoReg.trim().toLowerCase());
+              setDigitosOTP(["", "", "", "", "", ""]);
+              setErrorAuth({
+                tipo: "ok",
+                msg: `Hemos enviado un correo electrónico de verificación a ${data.correo || correoReg}. Revisa tu bandeja de entrada (o Spam) e ingresa el código de 6 dígitos.`
+              });
+              setModoAuth("verificar_correo");
+            } else if (data.usuario) {
+              // Compatibilidad por si el servidor aún corre la versión anterior
+              setCorreoEnProceso(correoReg.trim().toLowerCase());
+              setDigitosOTP(["", "", "", "", "", ""]);
+              setErrorAuth({
+                tipo: "ok",
+                msg: `Hemos enviado un correo electrónico de verificación a ${correoReg}. Ingresa el código de 6 dígitos para confirmar tu cuenta.`
+              });
+              setModoAuth("verificar_correo");
+            }
+          } else {
+            setErrorAuth({ tipo: "error", msg: data.detail || "No se pudo completar el registro." });
+          }
+        } catch {
+          setErrorAuth({ tipo: "error", msg: "Error de conexión con el servidor." });
+        } finally {
+          setProcesandoAuth(false);
+        }
+      };
+
+      // PASO 2 REGISTRO: Confirmar código de verificación enviado al correo
+      const manejarVerificarCorreo = async (e) => {
+        e.preventDefault();
+        setErrorAuth(null);
+        const codigoUnido = digitosOTP.join("");
+        if (codigoUnido.length !== 6) {
+          setErrorAuth({ tipo: "error", msg: "Ingresa los 6 dígitos del código de verificación enviado a tu correo." });
+          return;
+        }
+
+        setProcesandoAuth(true);
+        const fd = new FormData();
+        fd.append("correo", correoEnProceso);
+        fd.append("codigo", codigoUnido);
+
+        try {
+          const res = await fetch(`${API_BASE}/api/auth/verificar-correo`, { method: "POST", body: fd });
+          const data = await res.json();
+          if (res.ok && data.usuario) {
+            localStorage.setItem("itp_usuario_sesion", JSON.stringify(data.usuario));
+            setUsuarioActivo(data.usuario);
+            await cargarDatosUsuario(data.usuario);
+            setVistaActual("portafolio");
+          } else {
+            setErrorAuth({ tipo: "error", msg: data.detail || "El código de verificación es incorrecto o ha expirado." });
+          }
+        } catch {
+          setErrorAuth({ tipo: "error", msg: "Error al verificar el código." });
+        } finally {
+          setProcesandoAuth(false);
+        }
+      };
+
+      const manejarReenviarCodigo = async (proposito = "VERIFICAR_CORREO") => {
+        setErrorAuth(null);
+        const fd = new FormData();
+        fd.append("correo", correoEnProceso);
+        fd.append("proposito", proposito);
+        try {
+          const res = await fetch(`${API_BASE}/api/auth/reenviar-codigo`, { method: "POST", body: fd });
+          const data = await res.json();
+          if (res.ok) {
+            setDigitosOTP(["", "", "", "", "", ""]);
+            setErrorAuth({ tipo: "ok", msg: data.mensaje });
+          } else {
+            setErrorAuth({ tipo: "error", msg: data.detail || "No se pudo reenviar el código." });
+          }
+        } catch {
+          setErrorAuth({ tipo: "error", msg: "Error de red al reenviar el correo." });
+        }
+      };
+
+      // LOGIN
+      const manejarLogin = async (e) => {
+        e.preventDefault();
+        setErrorAuth(null);
+        setProcesandoAuth(true);
+        const fd = new FormData();
+        fd.append("identificador", matriculaReg);
+        fd.append("password", passwordReg);
+
+        try {
+          const res = await fetch(`${API_BASE}/api/auth/login`, { method: "POST", body: fd });
+          const data = await res.json();
+          if (res.ok) {
+            if (data.requiere_verificacion) {
+              setCorreoEnProceso(data.correo);
+              setDigitosOTP(["", "", "", "", "", ""]);
+              setErrorAuth({ tipo: "info", msg: data.mensaje });
+              setModoAuth("verificar_correo");
+            } else if (data.usuario) {
+              localStorage.setItem("itp_usuario_sesion", JSON.stringify(data.usuario));
+              setUsuarioActivo(data.usuario);
+              await cargarDatosUsuario(data.usuario);
+              setVistaActual("portafolio");
+            }
+          } else {
+            setErrorAuth({ tipo: "error", msg: data.detail || "Correo/Número de control o contraseña incorrectos." });
+          }
+        } catch {
+          setErrorAuth({ tipo: "error", msg: "Error de conexión con el servidor." });
+        } finally {
+          setProcesandoAuth(false);
+        }
+      };
+
+      // RECUPERAR CONTRASEÑA PASO 1: Ingresar el correo registrado
+      const manejarSolicitarRecuperacion = async (e) => {
+        e.preventDefault();
+        setErrorAuth(null);
+        setProcesandoAuth(true);
+        const fd = new FormData();
+        fd.append("correo", correoReg.trim().toLowerCase());
+
+        try {
+          const res = await fetch(`${API_BASE}/api/auth/recuperar-solicitar`, { method: "POST", body: fd });
+          const data = await res.json();
+          if (res.ok) {
+            setCorreoEnProceso(data.correo || correoReg.trim().toLowerCase());
+            setDigitosOTP(["", "", "", "", "", ""]);
+            setPasswordReg("");
+            setConfirmarPasswordReg("");
+            setErrorAuth({ tipo: "ok", msg: data.mensaje });
+            setModoAuth("recuperar_nueva_clave");
+          } else {
+            setErrorAuth({ tipo: "error", msg: data.detail || "No existe ninguna cuenta asociada a ese correo electrónico." });
+          }
+        } catch {
+          setErrorAuth({ tipo: "error", msg: "Error al procesar la solicitud." });
+        } finally {
+          setProcesandoAuth(false);
+        }
+      };
+
+      // RECUPERAR CONTRASEÑA PASO 2: Código de 6 dígitos + Nueva Contraseña
+      const manejarConfirmarNuevaPassword = async (e) => {
+        e.preventDefault();
+        setErrorAuth(null);
+        const codigoUnido = digitosOTP.join("");
+        if (codigoUnido.length !== 6) {
+          setErrorAuth({ tipo: "error", msg: "Ingresa los 6 dígitos del código enviado a tu correo." });
+          return;
+        }
+        if (passwordReg !== confirmarPasswordReg) {
+          setErrorAuth({ tipo: "error", msg: "Las contraseñas no coinciden." });
+          return;
+        }
+
+        setProcesandoAuth(true);
+        const fd = new FormData();
+        fd.append("correo", correoEnProceso);
+        fd.append("codigo", codigoUnido);
+        fd.append("nueva_password", passwordReg);
+        fd.append("confirmar_password", confirmarPasswordReg);
+
+        try {
+          const res = await fetch(`${API_BASE}/api/auth/recuperar-confirmar`, { method: "POST", body: fd });
+          const data = await res.json();
+          if (res.ok) {
+            setMatriculaReg(correoEnProceso);
+            setPasswordReg("");
+            setErrorAuth({ tipo: "ok", msg: data.mensaje });
+            setModoAuth("login");
+          } else {
+            setErrorAuth({ tipo: "error", msg: data.detail || "No se pudo restablecer la contraseña." });
+          }
+        } catch {
+          setErrorAuth({ tipo: "error", msg: "Error de conexión." });
+        } finally {
+          setProcesandoAuth(false);
+        }
+      };
+
+      const cerrarSesion = () => {
+        localStorage.removeItem("itp_usuario_sesion");
+        setUsuarioActivo(null);
+        setDatosPortafolio(null);
+        setVistaActual("inicio");
+      };
+
+      const guardarEvidenciaConIA = async (e) => {
+        e.preventDefault();
+        if (!usuarioActivo) return;
+        setSubiendo(true);
+        setAlerta(null);
+        const fd = new FormData();
+        fd.append("estudiante_id", usuarioActivo.id);
+        fd.append("titulo", titulo);
+        fd.append("descripcion", descripcion);
+        fd.append("materia_id", materiaSeleccionada);
+        if (urlExterna.trim()) fd.append("url_enlace_externo", urlExterna.trim());
+        colaArchivos.forEach((f) => fd.append("archivos", f));
+
+        const res = await fetch(`${API_BASE}/api/evidencias/subir`, { method: "POST", body: fd });
+        const data = await res.json();
+        if (res.ok) {
+          setAlerta({ tipo: "ok", msg: data.mensaje, detalleIA: data.analisis_ia });
+          setTitulo(""); setDescripcion(""); setUrlExterna(""); setColaArchivos([]);
+          await cargarDatosUsuario();
+        } else {
+          setAlerta({ tipo: "error", msg: data.detail || "Error al subir." });
+        }
+        setSubiendo(false);
+      };
+
+      const previsualizarArchivo = async (arch) => {
+        setArchivoEnVisor(arch);
+        setTextoCodigoVisor("");
+        const n = (arch.nombre || "").toLowerCase();
+        if (arch.tipo === "CODIGO" || n.endsWith(".txt") || n.endsWith(".md") || n.endsWith(".sql") || n.endsWith(".py") || n.endsWith(".kt")) {
+          const res = await fetch(`${API_BASE}/api/archivos/leer-texto/${arch.id}`);
+          if (res.ok) setTextoCodigoVisor(await res.text());
+        }
+      };
+
+      const construirHistorialPorSemestre = () => {
+        const mapaEvidenciasPorMateria = {};
+        if (datosPortafolio && Array.isArray(datosPortafolio.portafolio_por_materia)) {
+          datosPortafolio.portafolio_por_materia.forEach((bloque) => {
+            if (bloque && bloque.clave) mapaEvidenciasPorMateria[bloque.clave] = bloque.evidencias || [];
+          });
+        }
+        return [1, 2, 3, 4, 5, 6, 7, 8, 9].map((numSem) => {
+          const materiasDelSemestre = (materias || []).filter((m) => m.semestre === numSem);
+          const materiasConHistorial = materiasDelSemestre.map((m) => ({
+            ...m, evidencias: mapaEvidenciasPorMateria[m.clave] || [],
+          }));
+          const totalEvidenciasSemestre = materiasConHistorial.reduce((acc, m) => acc + (m.evidencias?.length || 0), 0);
+          return { semestre: numSem, materias: materiasConHistorial, totalEvidenciasSemestre };
+        }).filter((s) => semestreActivoHistorial === "TODOS" || s.semestre === Number(semestreActivoHistorial));
+      };
+
+      return (
+        <div className="min-h-screen bg-slate-950 text-slate-100 font-sans">
+          {/* BARRA DE NAVEGACIÓN */}
+          <nav className="border-b border-slate-800 bg-slate-900 sticky top-0 z-40 print:hidden">
+            <div className="max-w-7xl mx-auto px-6 py-4 flex flex-wrap justify-between items-center gap-4">
+              <div className="flex items-center gap-3 cursor-pointer" onClick={() => setVistaActual("inicio")}>
+                <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-lg">ITP</div>
                 <div>
-                    <div class="flex items-center gap-3 mb-2">
-                        <span class="text-4xl font-tech font-bold text-white">Gretel Tamara Ceja Tostado</span>
-                    </div>
-                    <!-- Badge de Verificación Brillante -->
-                    <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold shadow-[0_0_10px_rgba(16,185,129,0.2)]">
-                        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
-                        CORREO VERIFICADO
-                    </div>
+                  <span className="font-bold text-white block leading-none">Portafolio Académico ITP</span>
+                  <span className="text-xs text-blue-400">Ingeniería en TICs • Retícula Oficial ITIC-2010-225</span>
                 </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button onClick={() => setVistaActual("inicio")} className={`px-3.5 py-2 text-xs font-bold rounded-lg ${vistaActual === "inicio" ? "bg-blue-600 text-white" : "bg-slate-800 hover:bg-slate-700"}`}>Inicio</button>
+                <button onClick={() => setVistaActual("reticula")} className={`px-3.5 py-2 text-xs font-bold rounded-lg ${vistaActual === "reticula" ? "bg-blue-600 text-white" : "bg-slate-800 hover:bg-slate-700"}`}>Retícula</button>
+                {usuarioActivo ? (
+                  <>
+                    <button onClick={() => setVistaActual("subir")} className={`px-3.5 py-2 text-xs font-bold rounded-lg ${vistaActual === "subir" ? "bg-blue-600 text-white" : "bg-slate-800 hover:bg-slate-700"}`}>+ Subir Evidencia</button>
+                    <button onClick={() => { cargarDatosUsuario(); setVistaActual("portafolio"); }} className={`px-3.5 py-2 text-xs font-bold rounded-lg ${vistaActual === "portafolio" ? "bg-emerald-600 text-white" : "bg-emerald-700 hover:bg-emerald-600 text-white"}`}>Mi CV</button>
+                    <button onClick={cerrarSesion} className="px-3 py-2 text-xs font-bold rounded-lg bg-red-950/70 text-red-300 border border-red-800">Salir</button>
+                  </>
+                ) : (
+                  <>
+                    <button onClick={() => { setModoAuth("login"); setErrorAuth(null); setVistaActual("auth"); }} className="px-4 py-2 text-xs font-bold rounded-lg bg-slate-800 hover:bg-slate-700">Iniciar Sesión</button>
+                    <button onClick={() => { setModoAuth("registro"); setErrorAuth(null); setVistaActual("auth"); }} className="px-4 py-2 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-500">Crear Cuenta</button>
+                  </>
+                )}
+              </div>
+            </div>
+          </nav>
+
+          {/* 1. PÁGINA DE INICIO */}
+          {vistaActual === "inicio" && (
+            <main className="max-w-6xl mx-auto px-6 py-16 text-center">
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-950 text-blue-300 border border-blue-800">
+                Instituto Tecnológico de Puebla • Ingeniería en TICs
+              </span>
+              <h1 className="text-4xl md:text-6xl font-extrabold mt-6 text-white leading-tight">
+                Plataforma de Portafolio Académico y <span className="text-blue-400">CV Verificable</span>
+              </h1>
+              <p className="mt-6 text-lg text-slate-300 max-w-3xl mx-auto">
+                Registra tu cuenta estudiantil verificando tu correo electrónico, sube tus proyectos por semestre y genera automáticamente tu Currículum Técnico analizado por Inteligencia Artificial.
+              </p>
+              <div className="mt-10 flex justify-center gap-4">
+                {!usuarioActivo ? (
+                  <>
+                    <button onClick={() => { setModoAuth("registro"); setErrorAuth(null); setVistaActual("auth"); }} className="px-8 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 font-extrabold text-white shadow-lg">Crear Cuenta</button>
+                    <button onClick={() => { setModoAuth("login"); setErrorAuth(null); setVistaActual("auth"); }} className="px-8 py-4 rounded-xl bg-slate-800 hover:bg-slate-700 font-bold text-slate-200 border border-slate-700">Iniciar Sesión</button>
+                  </>
+                ) : (
+                  <button onClick={() => setVistaActual("portafolio")} className="px-8 py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-extrabold text-white">Ir a Mi Portafolio →</button>
+                )}
+              </div>
+            </main>
+          )}
+
+          {/* 2. MÓDULO DE CUENTA Y VERIFICACIÓN EN DOS PASOS */}
+          {vistaActual === "auth" && (
+            <section className="max-w-xl mx-auto px-6 py-10">
+              <div className="p-8 rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl">
                 
-                <!-- Info Técnica (Derecha) -->
-                <div class="w-full md:w-auto grid grid-cols-1 gap-2 text-sm text-gray-400 bg-black/20 p-4 rounded-2xl border border-white/5">
-                    <div class="flex justify-between md:justify-start md:gap-8">
-                        <span class="text-gray-500">No. Control:</span>
-                        <span class="font-mono text-gray-200">23221036</span>
+                {(modoAuth === "registro" || modoAuth === "login") && (
+                  <div className="flex gap-2 mb-6 p-1 bg-slate-950 rounded-xl border border-slate-800">
+                    <button onClick={() => { setModoAuth("registro"); setErrorAuth(null); }} className={`flex-1 py-2.5 rounded-lg text-xs font-extrabold transition ${modoAuth === "registro" ? "bg-blue-600 text-white" : "text-slate-400"}`}>Crear Cuenta</button>
+                    <button onClick={() => { setModoAuth("login"); setErrorAuth(null); }} className={`flex-1 py-2.5 rounded-lg text-xs font-extrabold transition ${modoAuth === "login" ? "bg-blue-600 text-white" : "text-slate-400"}`}>Iniciar Sesión</button>
+                  </div>
+                )}
+
+                {errorAuth && (
+                  <div className={`mb-5 p-4 rounded-xl border text-xs font-semibold leading-relaxed ${
+                    errorAuth.tipo === "ok" ? "bg-emerald-950/70 border-emerald-500 text-emerald-200" :
+                    errorAuth.tipo === "info" ? "bg-blue-950/70 border-blue-500 text-blue-200" :
+                    "bg-red-950/70 border-red-500 text-red-200"
+                  }`}>
+                    {errorAuth.msg}
+                  </div>
+                )}
+
+                {/* PANTALLA 1: CREAR CUENTA */}
+                {modoAuth === "registro" && (
+                  <form onSubmit={manejarRegistro} className="space-y-4">
+                    <div>
+                      <h2 className="text-2xl font-extrabold text-white">Crear Cuenta</h2>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Al registrarte te enviaremos un correo electrónico con un código de 6 dígitos para verificar tu cuenta.
+                      </p>
                     </div>
-                    <div class="flex justify-between md:justify-start md:gap-8">
-                        <span class="text-gray-500">Correo:</span>
-                        <span class="font-mono text-blue-400">greteltamaracejatostado7@gmail.com</span>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-blue-400 mb-1">Nombre Completo *</label>
+                        <input required type="text" value={nombreReg} onChange={e => setNombreReg(e.target.value)} placeholder="Nombre y Apellidos" className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-blue-400 mb-1">Número de Control *</label>
+                        <input required type="text" value={matriculaReg} onChange={e => setMatriculaReg(e.target.value)} placeholder="Ej. 23221036" className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white font-mono" />
+                      </div>
                     </div>
-                    <div class="flex justify-between md:justify-start md:gap-8">
-                        <span class="text-gray-500">Semestre Vigente:</span>
-                        <span class="font-medium text-white">7° Semestre</span>
+
+                    <div>
+                      <label className="block text-xs font-bold text-emerald-400 mb-1">Correo Personal *</label>
+                      <input
+                        required
+                        type="email"
+                        value={correoReg}
+                        onChange={e => { setCorreoReg(e.target.value); setEstadoCorreoMX(null); }}
+                        onBlur={e => verificarCorreoConGoogleDNS(e.target.value)}
+                        placeholder="tu_correo@gmail.com"
+                        className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white font-mono"
+                      />
+                      {validandoMX && <p className="text-[11px] text-blue-400 mt-1">Verificando existencia del dominio de correo...</p>}
+                      {estadoCorreoMX && (
+                        <p className={`text-[11px] mt-1.5 font-semibold ${estadoCorreoMX.valido ? "text-emerald-400" : "text-red-400"}`}>
+                          {estadoCorreoMX.valido ? "✓ " : "✕ "}{estadoCorreoMX.texto}
+                        </p>
+                      )}
                     </div>
-                </div>
-            </div>
 
-            <!-- Línea separadora sutil -->
-            <div class="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent mb-8"></div>
-
-            <!-- Resumen IA -->
-            <div class="mb-8">
-                <h3 class="text-sm font-tech text-blue-400 font-semibold mb-3 tracking-wider uppercase flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                    Resumen Profesional IA
-                </h3>
-                <p class="text-gray-300 leading-relaxed text-sm md:text-base bg-white/5 p-4 rounded-xl border border-white/5 border-l-2 border-l-blue-500">
-                    Estudiante de 7° semestre de Ingeniería en TICs en el Instituto Tecnológico de Puebla con 2 evidencias prácticas verificadas. Dominio comprobado mediante análisis de código y documentos en: Desarrollo Web (HTML/CSS/JS), Git / Control de Versiones, SQL / Bases de Datos.
-                </p>
-            </div>
-
-            <!-- Stack Tecnológico -->
-            <div>
-                <h3 class="text-sm font-tech text-cyan-400 font-semibold mb-3 tracking-wider uppercase">
-                    Stack Tecnológico Detectado
-                </h3>
-                <div class="flex flex-wrap gap-2">
-                    <span class="px-3 py-1.5 rounded-lg bg-blue-900/40 border border-blue-500/30 text-blue-200 text-xs font-medium flex items-center gap-1.5 shadow-[0_0_8px_rgba(59,130,246,0.15)]">
-                        <span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
-                        Desarrollo Web (HTML/CSS/JS)
-                    </span>
-                    <span class="px-3 py-1.5 rounded-lg bg-orange-900/30 border border-orange-500/30 text-orange-200 text-xs font-medium flex items-center gap-1.5 shadow-[0_0_8px_rgba(249,115,22,0.15)]">
-                        <span class="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse"></span>
-                        Git / Control de Versiones
-                    </span>
-                    <span class="px-3 py-1.5 rounded-lg bg-purple-900/30 border border-purple-500/30 text-purple-200 text-xs font-medium flex items-center gap-1.5 shadow-[0_0_8px_rgba(168,85,247,0.15)]">
-                        <span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
-                        SQL / Bases de Datos
-                    </span>
-                </div>
-            </div>
-        </section>
-
-        <!-- SECCIÓN 2: Historial Académico -->
-        <section>
-            <div class="flex items-center justify-between mb-6">
-                <h2 class="text-2xl font-tech font-bold text-white flex items-center gap-3">
-                    <span class="w-2 h-8 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.8)]"></span>
-                    Historial Académico
-                </h2>
-                <select class="bg-black/40 border border-white/10 text-gray-300 text-sm rounded-xl focus:ring-blue-500 focus:border-blue-500 block p-2.5 backdrop-blur-md outline-none cursor-pointer">
-                    <option value="todos">Todos los semestres</option>
-                    <option value="1">1° Semestre</option>
-                    <option value="7">7° Semestre</option>
-                </select>
-            </div>
-
-            <!-- Grid de Semestres -->
-            <div class="space-y-6 relative before:absolute before:inset-0 before:ml-4 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-white/10 before:to-transparent">
-                
-                <!-- Item: 1° Semestre -->
-                <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                    <!-- Icono en la línea de tiempo -->
-                    <div class="flex items-center justify-center w-8 h-8 rounded-full border-2 border-blue-500 bg-gray-900 text-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)] shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
-                        <span class="text-xs font-bold font-tech">1°</span>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-blue-400 mb-1">Contraseña (Mín. 6 caracteres) *</label>
+                        <input required type="password" value={passwordReg} onChange={e => setPasswordReg(e.target.value)} placeholder="••••••••" className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-400 mb-1">Foto de Perfil (Opcional)</label>
+                        <input type="file" accept="image/*" onChange={e => setFotoReg(e.target.files[0])} className="w-full text-xs text-slate-300 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-slate-800 file:text-white cursor-pointer" />
+                      </div>
                     </div>
-                    
-                    <!-- Tarjeta del Semestre -->
-                    <div class="w-[calc(100%-3rem)] md:w-[calc(50%-2rem)] p-1">
-                        <div class="glass-card rounded-2xl p-5 hover:border-blue-500/30 transition-colors duration-300">
-                            <div class="flex justify-between items-center mb-4">
-                                <h4 class="font-bold text-lg text-white">1° Semestre</h4>
-                                <span class="text-xs font-medium bg-white/5 text-gray-400 px-2.5 py-1 rounded-lg border border-white/5">0 proyectos</span>
-                            </div>
-                            
-                            <!-- Lista de Materias -->
-                            <div class="space-y-3">
-                                <!-- Materia 1 -->
-                                <div class="flex justify-between items-center p-3 rounded-xl bg-black/40 border border-white/5 hover:bg-white/5 transition-colors group/item">
-                                    <div>
-                                        <span class="text-xs font-mono text-blue-400 block">ACF-2301</span>
-                                        <span class="text-sm font-medium text-gray-200">Cálculo Diferencial</span>
-                                    </div>
-                                    <button class="btn-glow flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/90 hover:bg-blue-500 text-white text-xs font-medium transition-all">
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                                        Subir
-                                    </button>
-                                </div>
-                                <!-- Materia 2 -->
-                                <div class="flex justify-between items-center p-3 rounded-xl bg-black/40 border border-white/5 hover:bg-white/5 transition-colors group/item">
-                                    <div>
-                                        <span class="text-xs font-mono text-blue-400 block">AEF-1032</span>
-                                        <span class="text-sm font-medium text-gray-200">Fundamentos de Programación</span>
-                                    </div>
-                                    <button class="btn-glow flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/90 hover:bg-blue-500 text-white text-xs font-medium transition-all">
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                                        Subir
-                                    </button>
-                                </div>
-                                <!-- Materia 3 -->
-                                <div class="flex justify-between items-center p-3 rounded-xl bg-black/40 border border-white/5 hover:bg-white/5 transition-colors group/item">
-                                    <div>
-                                        <span class="text-xs font-mono text-blue-400 block">TIF-1019</span>
-                                        <span class="text-sm font-medium text-gray-200">Matemáticas Discretas I</span>
-                                    </div>
-                                    <button class="btn-glow flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/90 hover:bg-blue-500 text-white text-xs font-medium transition-all">
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                                        Subir
-                                    </button>
-                                </div>
-                            </div>
+
+                    <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                      <label className="block text-xs font-extrabold uppercase text-amber-400">Control de Semestre en Curso (ITICs)</label>
+                      <div className="flex gap-4 text-xs">
+                        <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" checked={modoSemestreReg === "AUTOMATICO"} onChange={() => setModoSemestreReg("AUTOMATICO")} /> Automático por Fechas</label>
+                        <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" checked={modoSemestreReg === "MANUAL"} onChange={() => setModoSemestreReg("MANUAL")} /> Manual</label>
+                      </div>
+                      <select value={semestreManualReg} onChange={e => setSemestreManualReg(Number(e.target.value))} className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm text-white">
+                        {[1,2,3,4,5,6,7,8,9].map(s => <option key={s} value={s}>{s}° Semestre</option>)}
+                      </select>
+                      {modoSemestreReg === "AUTOMATICO" && (
+                        <div className="grid grid-cols-2 gap-3 pt-1">
+                          <div><label className="block text-[11px] text-slate-400">Inicio de Semestre</label><input type="date" value={fechaInicioReg} onChange={e => setFechaInicioReg(e.target.value)} className="w-full p-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white" /></div>
+                          <div><label className="block text-[11px] text-slate-400">Fin de Semestre</label><input type="date" value={fechaFinReg} onChange={e => setFechaFinReg(e.target.value)} className="w-full p-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white" /></div>
                         </div>
+                      )}
                     </div>
-                </div>
 
-                <!-- Item: 2° Semestre (Ejemplo cerrado/vacío) -->
-                <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group">
-                    <div class="flex items-center justify-center w-8 h-8 rounded-full border-2 border-white/10 bg-gray-900 text-gray-500 shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 transition-colors group-hover:border-white/30">
-                        <span class="text-xs font-bold font-tech">2°</span>
+                    <button type="submit" disabled={procesandoAuth} className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 font-extrabold text-white text-sm shadow-lg">
+                      {procesandoAuth ? "Enviando correo de verificación..." : "Crear Cuenta y Enviar Código de Verificación →"}
+                    </button>
+                  </form>
+                )}
+
+                {/* PANTALLA 2: VERIFICAR CORREO ELECTRÓNICO (ESTILO GOOGLE 2-STEP VERIFICATION) */}
+                {modoAuth === "verificar_correo" && (
+                  <form onSubmit={manejarVerificarCorreo} className="space-y-6">
+                    <div className="text-center">
+                      <div className="w-16 h-16 rounded-full bg-blue-600/20 border border-blue-500/40 flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                      <h2 className="text-2xl font-extrabold text-white">Verificar tu correo electrónico</h2>
+                      <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+                        Para proteger tu cuenta, hemos enviado un correo electrónico con un código de verificación de 6 dígitos a:<br/>
+                        <span className="font-mono font-bold text-blue-400 text-sm">{correoEnProceso}</span>
+                      </p>
                     </div>
-                    <div class="w-[calc(100%-3rem)] md:w-[calc(50%-2rem)] p-1 opacity-60 hover:opacity-100 transition-opacity">
-                        <div class="glass-card rounded-2xl p-4 cursor-pointer hover:bg-white/5 transition-colors flex justify-between items-center">
-                            <h4 class="font-bold text-gray-400">2° Semestre</h4>
-                            <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-slate-400 text-center mb-3">
+                        Ingresa el código de verificación
+                      </label>
+                      <div className="flex justify-center gap-2.5" onPaste={pegarCodigoCompleto}>
+                        {digitosOTP.map((dig, idx) => (
+                          <input
+                            key={idx}
+                            ref={el => inputsRef.current[idx] = el}
+                            type="text"
+                            inputMode="numeric"
+                            maxLength="1"
+                            value={dig}
+                            onChange={e => cambiarDigitoOTP(idx, e.target.value)}
+                            className="w-12 h-14 rounded-xl bg-slate-950 border-2 border-slate-700 focus:border-blue-500 text-center text-2xl font-mono font-extrabold text-white outline-none"
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    <button type="submit" disabled={procesandoAuth} className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 font-extrabold text-white text-sm shadow-lg">
+                      {procesandoAuth ? "Verificando código..." : "Verificar Correo y Activar Cuenta"}
+                    </button>
+
+                    <div className="flex justify-between items-center text-xs pt-3 border-t border-slate-800">
+                      <button type="button" onClick={() => manejarReenviarCodigo("VERIFICAR_CORREO")} className="text-blue-400 font-bold hover:underline">
+                        ¿No recibiste el correo? Reenviar código
+                      </button>
+                      <button type="button" onClick={() => { setModoAuth("registro"); setErrorAuth(null); }} className="text-slate-400 hover:text-white">
+                        Cambiar correo
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* PANTALLA 3: INICIAR SESIÓN */}
+                {modoAuth === "login" && (
+                  <form onSubmit={manejarLogin} className="space-y-4">
+                    <div>
+                      <h2 className="text-2xl font-extrabold text-white">Iniciar Sesión</h2>
+                      <p className="text-xs text-slate-400 mt-1">Accede con tu correo personal verificado o tu número de control.</p>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-blue-400 mb-1">Correo Personal o Número de Control *</label>
+                      <input required type="text" value={matriculaReg} onChange={e => setMatriculaReg(e.target.value)} placeholder="tu_correo@gmail.com o 23221036" className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" />
+                    </div>
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="block text-xs font-bold text-blue-400">Contraseña *</label>
+                        <button type="button" onClick={() => { setModoAuth("recuperar_correo"); setErrorAuth(null); }} className="text-xs text-emerald-400 font-bold hover:underline">
+                          ¿Olvidaste tu contraseña?
+                        </button>
+                      </div>
+                      <input required type="password" value={passwordReg} onChange={e => setPasswordReg(e.target.value)} placeholder="••••••••" className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" />
+                    </div>
+                    <button type="submit" disabled={procesandoAuth} className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 font-extrabold text-white text-sm">
+                      {procesandoAuth ? "Iniciando sesión..." : "Entrar a Mi Cuenta"}
+                    </button>
+                  </form>
+                )}
+
+                {/* PANTALLA 4: RECUPERAR CONTRASEÑA PASO 1 (ESCRIBIR EL CORREO REGISTRADO) */}
+                {modoAuth === "recuperar_correo" && (
+                  <form onSubmit={manejarSolicitarRecuperacion} className="space-y-4">
+                    <div>
+                      <h2 className="text-2xl font-extrabold text-white">Recuperación de Cuenta</h2>
+                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                        Ingresa el correo electrónico con el que creaste tu cuenta. Te enviaremos un correo con un código de verificación de 6 dígitos para confirmar que eres tú y permitirte crear una nueva contraseña.
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-blue-400 mb-1">Correo Electrónico Registrado *</label>
+                      <input required type="email" value={correoReg} onChange={e => setCorreoReg(e.target.value)} placeholder="tu_correo@gmail.com" className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white font-mono" />
+                    </div>
+                    <button type="submit" disabled={procesandoAuth} className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 font-extrabold text-white text-sm">
+                      {procesandoAuth ? "Enviando correo..." : "Enviar Correo con Código de Verificación"}
+                    </button>
+                    <div className="text-center pt-2">
+                      <button type="button" onClick={() => { setModoAuth("login"); setErrorAuth(null); }} className="text-xs text-slate-400 hover:text-white">
+                        ← Volver a Iniciar Sesión
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* PANTALLA 5: RECUPERAR CONTRASEÑA PASO 2 (CÓDIGO DE 6 DÍGITOS + NUEVA CONTRASEÑA) */}
+                {modoAuth === "recuperar_nueva_clave" && (
+                  <form onSubmit={manejarConfirmarNuevaPassword} className="space-y-5">
+                    <div className="text-center">
+                      <h2 className="text-2xl font-extrabold text-white">Restablecer Contraseña</h2>
+                      <p className="text-xs text-slate-300 mt-1">
+                        Ingresa el código de 6 dígitos que enviamos a <span className="font-mono text-blue-400 font-bold">{correoEnProceso}</span> y escribe tu nueva contraseña.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-slate-400 text-center mb-2">
+                        Código de Verificación (6 dígitos) *
+                      </label>
+                      <div className="flex justify-center gap-2" onPaste={pegarCodigoCompleto}>
+                        {digitosOTP.map((dig, idx) => (
+                          <input
+                            key={idx}
+                            ref={el => inputsRef.current[idx] = el}
+                            type="text"
+                            inputMode="numeric"
+                            maxLength="1"
+                            value={dig}
+                            onChange={e => cambiarDigitoOTP(idx, e.target.value)}
+                            className="w-11 h-12 rounded-xl bg-slate-950 border-2 border-slate-700 focus:border-blue-500 text-center text-xl font-mono font-extrabold text-white outline-none"
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-emerald-400 mb-1">Nueva Contraseña *</label>
+                      <input required type="password" value={passwordReg} onChange={e => setPasswordReg(e.target.value)} placeholder="Mínimo 6 caracteres" className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-emerald-400 mb-1">Confirmar Nueva Contraseña *</label>
+                      <input required type="password" value={confirmarPasswordReg} onChange={e => setConfirmarPasswordReg(e.target.value)} placeholder="Repite tu nueva contraseña" className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" />
+                    </div>
+
+                    <button type="submit" disabled={procesandoAuth} className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-extrabold text-white text-sm">
+                      Guardar Nueva Contraseña
+                    </button>
+
+                    <div className="flex justify-between text-xs pt-2 border-t border-slate-800">
+                      <button type="button" onClick={() => manejarReenviarCodigo("RECUPERAR_PASSWORD")} className="text-blue-400 font-bold hover:underline">
+                        Reenviar código al correo
+                      </button>
+                      <button type="button" onClick={() => { setModoAuth("login"); setErrorAuth(null); }} className="text-slate-400 hover:text-white">
+                        Cancelar
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* 3. RETÍCULA */}
+          {vistaActual === "reticula" && (
+            <section className="max-w-[1600px] mx-auto px-4 py-6">
+              <div className="mb-4 bg-slate-900 p-4 rounded-xl border border-slate-800">
+                <h2 className="text-lg font-extrabold text-white uppercase">Retícula Oficial de ITICs (ITIC-2010-225) - ITP</h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-9 gap-2.5 overflow-x-auto pb-6">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((sem) => (
+                  <div key={sem} className="flex flex-col gap-2.5 min-w-[155px]">
+                    <div className="bg-blue-950 border border-blue-700 text-blue-200 text-center py-2 rounded-lg font-extrabold text-xs uppercase">{sem}° Semestre</div>
+                    {(materias || []).filter((m) => m.semestre === sem).map((m) => (
+                      <div key={m.id} onClick={() => { setMateriaSeleccionada(m.id); setVistaActual(usuarioActivo ? "subir" : "auth"); }} className={`p-2.5 rounded-lg cursor-pointer transition flex flex-col justify-between min-h-[115px] ${m.total_evidencias > 0 ? "bg-emerald-950 border-2 border-emerald-400 text-white" : "bg-slate-900 border border-slate-700 hover:border-blue-400"}`}>
+                        <div className="font-bold text-[11px] text-center leading-tight">{m.nombre}</div>
+                        <div className="mt-2 pt-1.5 border-t border-white/10 text-[10px] flex justify-between font-mono"><span className="text-blue-300">{m.clave}</span><span>{m.total_evidencias > 0 ? `✓ ${m.total_evidencias}` : "+ Subir"}</span></div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* 4. SUBIR EVIDENCIAS */}
+          {vistaActual === "subir" && (
+            <section className="max-w-3xl mx-auto px-6 py-8">
+              <div className="p-8 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
+                <span className="px-2.5 py-1 rounded bg-blue-950 text-blue-300 border border-blue-800 text-xs font-bold">Analizador de Evidencias con IA</span>
+                <h2 className="text-2xl font-extrabold text-white mt-2">Subir Proyecto a tu Historial</h2>
+                <form onSubmit={guardarEvidenciaConIA} className="space-y-4 mt-6">
+                  {alerta && <div className={`p-4 rounded-xl border text-xs ${alerta.tipo === "ok" ? "bg-emerald-950 border-emerald-500 text-emerald-200" : "bg-red-950 border-red-500 text-red-200"}`}><div className="font-bold text-sm">{alerta.msg}</div></div>}
+                  <div><label className="block text-xs font-bold text-blue-400 mb-1">Materia *</label><select value={materiaSeleccionada} onChange={(e) => setMateriaSeleccionada(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white">{(materias || []).map((m) => (<option key={m.id} value={m.id}>[{m.semestre}° Semestre] {m.clave} - {m.nombre}</option>))}</select></div>
+                  <div><label className="block text-xs font-bold text-blue-400 mb-1">Título del Proyecto *</label><input type="text" required value={titulo} onChange={(e) => setTitulo(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white" /></div>
+                  <div><label className="block text-xs font-bold text-slate-400 mb-1">Descripción</label><textarea rows="2" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white" /></div>
+                  <div className="p-4 rounded-xl border-2 border-dashed border-blue-500/60 bg-slate-950"><label className="block text-xs font-bold text-emerald-400 mb-2">Seleccionar Archivos (PDFs, ZIPs, Videos, Código)</label><input type="file" multiple onChange={(e) => setColaArchivos([...colaArchivos, ...Array.from(e.target.files)])} className="w-full text-xs text-slate-300 file:bg-blue-600 file:text-white file:border-0 file:px-3 file:py-1.5 file:rounded-lg cursor-pointer" />
+                    {colaArchivos.length > 0 && <div className="mt-4 pt-3 border-t border-slate-800 space-y-1.5">{colaArchivos.map((f, i) => (<div key={i} className="flex justify-between items-center bg-slate-900 px-3 py-1.5 rounded-lg text-xs"><span className="text-white">📄 {f.name}</span><button type="button" onClick={() => setColaArchivos(colaArchivos.filter((_, idx) => idx !== i))} className="text-red-400 font-bold ml-2">✕</button></div>))}</div>}
+                  </div>
+                  <button type="submit" disabled={subiendo} className="w-full py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-extrabold text-white text-sm uppercase">{subiendo ? "Analizando con IA..." : `Analizar con IA y Guardar (${colaArchivos.length} Archivos)`}</button>
+                </form>
+              </div>
+            </section>
+          )}
+
+          {/* 5. PORTAFOLIO Y CURRÍCULUM */}
+          {vistaActual === "portafolio" && (
+            <section className="max-w-7xl mx-auto px-6 py-8">
+              {!datosPortafolio ? <div className="text-center text-slate-400 p-10 font-bold">Cargando tu portafolio...</div> : (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                  <aside className="lg:col-span-4 space-y-6">
+                    <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
+                      <div className="flex items-center gap-4 pb-5 border-b border-slate-800">
+                        {datosPortafolio.estudiante?.foto_url ? <img src={`${API_BASE}${datosPortafolio.estudiante.foto_url}`} className="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-400" /> : <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-emerald-500 flex items-center justify-center text-xl font-extrabold text-white">{(datosPortafolio.estudiante?.nombre || "U").slice(0, 2).toUpperCase()}</div>}
+                        <div>
+                          <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700 text-[10px] font-bold uppercase">✓ Correo Verificado</span>
+                          <h2 className="text-xl font-extrabold text-white mt-1 leading-tight">{datosPortafolio.estudiante?.nombre}</h2>
                         </div>
+                      </div>
+                      <div className="py-4 border-b border-slate-800"><div className="text-[11px] font-bold text-blue-400 mb-1">Resumen Profesional IA</div><p className="text-xs text-slate-300">{datosPortafolio.estudiante?.perfil_ia}</p></div>
+                      <div className="py-4 border-b border-slate-800 space-y-2 text-xs">
+                        <div className="flex justify-between"><span className="text-slate-400">No. Control:</span><span className="font-mono font-bold text-white">{datosPortafolio.estudiante?.matricula}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-400">Correo Verificado:</span><span className="font-mono text-emerald-400">{datosPortafolio.estudiante?.correo}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-400">Semestre Vigente:</span><span className="font-extrabold text-white">{datosPortafolio.estudiante?.semestre_actual}° Semestre</span></div>
+                      </div>
+                      <div className="py-4 border-b border-slate-800"><h3 className="text-xs font-bold text-emerald-400 mb-1">Stack Tecnológico Detectado por IA</h3>{(datosPortafolio.metricas?.stack_dominado || []).length > 0 ? <div className="flex flex-wrap gap-1.5 mt-2">{(datosPortafolio.metricas.stack_dominado || []).map((t) => <span key={t} className="px-2 py-0.5 rounded bg-blue-950 text-blue-300 text-xs border border-blue-700">✓ {t}</span>)}</div> : <p className="text-xs text-slate-400">Sube archivos para que la IA detecte habilidades.</p>}</div>
+                      <div className="pt-4 space-y-2 print:hidden"><button onClick={() => window.print()} className="w-full py-2.5 rounded-xl bg-blue-600 text-white font-bold text-xs uppercase">Imprimir CV</button><button onClick={() => setVistaActual("subir")} className="w-full py-2.5 rounded-xl bg-slate-800 text-slate-200 font-bold text-xs uppercase">+ Subir Evidencia</button></div>
                     </div>
+                  </aside>
+                  <div className="lg:col-span-8 space-y-6">
+                    <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 flex justify-between items-center"><h3 className="text-lg font-extrabold text-white">Historial Académico Semestral (1° a 9°)</h3><select value={semestreActivoHistorial} onChange={(e) => setSemestreActivoHistorial(e.target.value)} className="p-2 rounded-lg bg-slate-950 border border-slate-700 text-xs font-bold text-white"><option value="TODOS">Todos los semestres</option>{[1,2,3,4,5,6,7,8,9].map(s => <option key={s} value={s}>{s}° Semestre</option>)}</select></div>
+                    <div className="relative border-l-2 border-blue-600 ml-4 pl-6 space-y-8">
+                      {construirHistorialPorSemestre().map((b) => (
+                        <div key={b.semestre} className="relative"><div className={`absolute -left-[33px] top-1 w-4 h-4 rounded-full border-4 border-slate-950 ${b.totalEvidenciasSemestre > 0 ? "bg-emerald-400" : "bg-slate-600"}`} /><div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 flex justify-between mb-3"><span className="font-extrabold text-sm text-white">{b.semestre}° Semestre</span><span className="text-xs text-emerald-400 font-bold">{b.totalEvidenciasSemestre} proyecto(s)</span></div>
+                          <div className="space-y-3">
+                            {b.materias.map((mat) => (
+                              <div key={mat.id} className={`p-4 rounded-xl border ${mat.evidencias.length > 0 ? "bg-slate-900 border-emerald-500/60" : "bg-slate-900/40 border-slate-800"}`}><div className="flex justify-between items-center"><div><span className="font-mono text-xs text-blue-400 font-bold mr-2">{mat.clave}</span><span className="font-bold text-white text-sm">{mat.nombre}</span></div><button onClick={() => { setMateriaSeleccionada(mat.id); setVistaActual("subir"); }} className="px-2.5 py-1 rounded bg-slate-800 text-xs font-bold">+ Subir</button></div>
+                                {mat.evidencias.length > 0 && <div className="mt-3 pt-3 border-t border-slate-800 space-y-3">{mat.evidencias.map((ev) => (<div key={ev.id} className="p-3.5 rounded-xl bg-slate-950 border border-slate-800"><div className="flex justify-between"><h5 className="font-bold text-white text-sm">{ev.titulo}</h5><span className="text-[11px] text-slate-400 font-mono">{ev.fecha}</span></div>{ev.analisis_ia && <p className="text-xs text-emerald-300 mt-1.5 bg-emerald-950/40 p-2 rounded border border-emerald-800/50">{ev.analisis_ia}</p>}
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">{(ev.archivos || []).map((arch) => (<div key={arch.id} className="p-2 rounded bg-slate-900 border border-slate-800 flex justify-between items-center text-xs"><span className="truncate text-white">📎 {arch.nombre}</span><div className="flex gap-1 shrink-0"><button onClick={() => previsualizarArchivo(arch)} className="px-2 py-1 rounded bg-blue-600 text-white font-bold">Abrir</button><a href={`${API_BASE}${arch.url}`} download={arch.nombre} className="px-2 py-1 rounded bg-slate-800 text-white font-bold">↓</a></div></div>))}</div></div>))}</div>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
+              )}
+            </section>
+          )}
 
+          {archivoEnVisor && (
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+              <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-5xl w-full p-6"><div className="flex justify-between items-center mb-4"><h4 className="font-bold text-white">{archivoEnVisor.nombre}</h4><button onClick={() => setArchivoEnVisor(null)} className="px-3 py-1 rounded bg-red-600 text-white text-xs font-bold">Cerrar ✕</button></div>
+                {archivoEnVisor.tipo === "IMAGEN" ? <img src={`${API_BASE}${archivoEnVisor.url}`} className="max-h-[70vh] mx-auto rounded" /> : archivoEnVisor.tipo === "VIDEO" || archivoEnVisor.nombre?.toLowerCase().endsWith(".mp4") ? <video controls autoPlay className="max-h-[70vh] w-full rounded"><source src={`${API_BASE}${archivoEnVisor.url}`} /></video> : textoCodigoVisor ? <pre className="bg-slate-950 text-emerald-300 p-4 rounded-xl text-xs font-mono overflow-auto max-h-[70vh]">{textoCodigoVisor}</pre> : <iframe src={`${API_BASE}${archivoEnVisor.url}`} className="w-full h-[70vh] rounded-xl bg-white" />}
+              </div>
             </div>
-        </section>
-    </main>
-
-    <!-- Footer -->
-    <footer class="border-t border-white/10 bg-black/50 backdrop-blur-lg mt-auto">
-        <div class="container mx-auto px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-gray-500">
-            <div class="flex items-center gap-2">
-                <span class="font-tech font-bold text-gray-400">Syntax Alpha</span>
-                <span>© 2026</span>
-            </div>
-            <div>
-                Sistema de Portafolio Académico - ITICs
-            </div>
-            <div class="flex gap-4">
-                <a href="#" class="hover:text-blue-400 transition-colors">Soporte</a>
-                <a href="#" class="hover:text-blue-400 transition-colors">Privacidad</a>
-            </div>
+          )}
         </div>
-    </footer>
-
+      );
+    }
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<PortafolioITPApp />);
+  </script>
 </body>
 </html>
