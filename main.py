@@ -16,7 +16,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, PlainTextResponse
 from sqlalchemy.orm import Session
-import resend
 
 from models import (
     Base, Carrera, Materia, Competencia, Usuario, Evidencia, ArchivoEvidencia,
@@ -113,14 +112,13 @@ def verificar_correo_con_google_dns(correo: str) -> dict:
     except Exception:
         return {"valido": True, "mensaje": "Formato de correo válido."}
 
-# --- ENVÍO DE CORREO DE VERIFICACIÓN CON API DE RESEND ---
+# --- ENVÍO DE CORREO DE VERIFICACIÓN CON API DE BREVO (PRODUCCIÓN REAL) ---
 def enviar_correo_verificacion(destinatario: str, nombre: str, codigo_otp: str, proposito: str) -> dict:
-    api_key = os.getenv("RESEND_API_KEY")
+    api_key = os.getenv("BREVO_API_KEY")
     if not api_key:
-        print(f"[ERROR] Falta RESEND_API_KEY. Código de respaldo para {destinatario}: {codigo_otp}")
+        print(f"[ERROR] Falta BREVO_API_KEY. Código de respaldo para {destinatario}: {codigo_otp}")
         return {"exito": False, "codigo_respaldo": codigo_otp, "error": "Falta API Key en Render"}
 
-    resend.api_key = api_key
     accion = "verificar tu correo electrónico y activar tu cuenta" if proposito == "VERIFICAR_CORREO" else "restablecer tu contraseña"
     
     html_body = f"""
@@ -139,17 +137,27 @@ def enviar_correo_verificacion(destinatario: str, nombre: str, codigo_otp: str, 
     </div>
     """
 
+    # Configuración de la petición HTTP directa a Brevo (Sin librerías externas)
+    url = "https://api.brevo.com/v3/smtp/email"
+    data = {
+        "sender": {"name": "Portafolio Académico ITP", "email": "reticulasproyectos@gmail.com"},
+        "to": [{"email": destinatario, "name": nombre}],
+        "subject": f"{codigo_otp} es tu código de seguridad - Portafolio ITP",
+        "htmlContent": html_body
+    }
+    
+    req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers={
+        "accept": "application/json",
+        "api-key": api_key,
+        "content-type": "application/json"
+    })
+
     try:
-        r = resend.Emails.send({
-            "from": "onboarding@resend.dev",
-            "to": destinatario,
-            "subject": f"{codigo_otp} es tu código de seguridad - Portafolio ITP",
-            "html": html_body
-        })
-        print(f"Correo enviado por API de Resend a {destinatario}")
-        return {"exito": True, "codigo_respaldo": None, "error": None}
+        with urllib.request.urlopen(req, timeout=8) as response:
+            print(f"Correo enviado exitosamente por Brevo API a {destinatario}")
+            return {"exito": True, "codigo_respaldo": None, "error": None}
     except Exception as e:
-        print(f"[ERROR API CORREO] {e}")
+        print(f"[ERROR API BREVO] Falló el envío a {destinatario}: {e}")
         return {"exito": False, "codigo_respaldo": codigo_otp, "error": str(e)}
 
 def calcular_semestre_vigente(usuario: Usuario) -> dict:
