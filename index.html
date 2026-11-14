@@ -28,7 +28,7 @@
       const [vistaActual, setVistaActual] = useState(usuarioActivo ? "portafolio" : "inicio");
       const [materias, setMaterias] = useState([]);
 
-      // Flujos de Autenticación: "registro" | "verificar_correo" | "login" | "recuperar_correo" | "recuperar_nueva_clave"
+      // Flujos de Autenticación
       const [modoAuth, setModoAuth] = useState("registro");
       const [nombreReg, setNombreReg] = useState("");
       const [matriculaReg, setMatriculaReg] = useState("");
@@ -41,11 +41,11 @@
       const [fechaFinReg, setFechaFinReg] = useState("");
       const [fotoReg, setFotoReg] = useState(null);
 
-      // Validación directa con la API oficial de Google Public DNS (Nunca da 404 Not Found)
+      // Validación directa con la API oficial de Google Public DNS
       const [estadoCorreoMX, setEstadoCorreoMX] = useState(null);
       const [validandoMX, setValidandoMX] = useState(false);
 
-      // Estados para Verificación de 2 Pasos (6 dígitos)
+      // Estados para Verificación de 2 Pasos
       const [correoEnProceso, setCorreoEnProceso] = useState("");
       const [digitosOTP, setDigitosOTP] = useState(["", "", "", "", "", ""]);
       const [errorAuth, setErrorAuth] = useState(null);
@@ -89,7 +89,6 @@
 
       useEffect(() => { cargarDatosUsuario(); }, [usuarioActivo]);
 
-      // Verificación en vivo usando directamente Google Public DNS (https://dns.google/resolve)
       const verificarCorreoConGoogleDNS = async (emailValor) => {
         const limpio = (emailValor || "").trim().toLowerCase();
         if (!limpio) {
@@ -162,7 +161,6 @@
         }
       };
 
-      // PASO 1 REGISTRO: Crear cuenta y enviar correo de verificación
       const manejarRegistro = async (e) => {
         e.preventDefault();
         setErrorAuth(null);
@@ -201,7 +199,6 @@
               });
               setModoAuth("verificar_correo");
             } else if (data.usuario) {
-              // Compatibilidad por si el servidor aún corre la versión anterior
               setCorreoEnProceso(correoReg.trim().toLowerCase());
               setDigitosOTP(["", "", "", "", "", ""]);
               setErrorAuth({
@@ -220,7 +217,6 @@
         }
       };
 
-      // PASO 2 REGISTRO: Confirmar código de verificación enviado al correo
       const manejarVerificarCorreo = async (e) => {
         e.preventDefault();
         setErrorAuth(null);
@@ -272,7 +268,6 @@
         }
       };
 
-      // LOGIN
       const manejarLogin = async (e) => {
         e.preventDefault();
         setErrorAuth(null);
@@ -306,7 +301,6 @@
         }
       };
 
-      // RECUPERAR CONTRASEÑA PASO 1: Ingresar el correo registrado
       const manejarSolicitarRecuperacion = async (e) => {
         e.preventDefault();
         setErrorAuth(null);
@@ -334,7 +328,6 @@
         }
       };
 
-      // RECUPERAR CONTRASEÑA PASO 2: Código de 6 dígitos + Nueva Contraseña
       const manejarConfirmarNuevaPassword = async (e) => {
         e.preventDefault();
         setErrorAuth(null);
@@ -584,7 +577,7 @@
                   </form>
                 )}
 
-                {/* PANTALLA 2: VERIFICAR CORREO ELECTRÓNICO (ESTILO GOOGLE 2-STEP VERIFICATION) */}
+                {/* PANTALLA 2: VERIFICAR CORREO ELECTRÓNICO */}
                 {modoAuth === "verificar_correo" && (
                   <form onSubmit={manejarVerificarCorreo} className="space-y-6">
                     <div className="text-center">
@@ -661,7 +654,7 @@
                   </form>
                 )}
 
-                {/* PANTALLA 4: RECUPERAR CONTRASEÑA PASO 1 (ESCRIBIR EL CORREO REGISTRADO) */}
+                {/* PANTALLA 4: RECUPERAR CONTRASEÑA PASO 1 */}
                 {modoAuth === "recuperar_correo" && (
                   <form onSubmit={manejarSolicitarRecuperacion} className="space-y-4">
                     <div>
@@ -685,7 +678,7 @@
                   </form>
                 )}
 
-                {/* PANTALLA 5: RECUPERAR CONTRASEÑA PASO 2 (CÓDIGO DE 6 DÍGITOS + NUEVA CONTRASEÑA) */}
+                {/* PANTALLA 5: RECUPERAR CONTRASEÑA PASO 2 */}
                 {modoAuth === "recuperar_nueva_clave" && (
                   <form onSubmit={manejarConfirmarNuevaPassword} className="space-y-5">
                     <div className="text-center">
@@ -743,20 +736,70 @@
             </section>
           )}
 
-          {/* 3. RETÍCULA */}
+          {/* 3. RETÍCULA OFICIAL ITP ESTILO DIAGRAMA */}
           {vistaActual === "reticula" && (
-            <section className="max-w-[1600px] mx-auto px-4 py-6">
-              <div className="mb-4 bg-slate-900 p-4 rounded-xl border border-slate-800">
-                <h2 className="text-lg font-extrabold text-white uppercase">Retícula Oficial de ITICs (ITIC-2010-225) - ITP</h2>
+            <section className="max-w-[1600px] mx-auto px-4 py-6 overflow-hidden">
+              <div className="mb-6 bg-slate-900 p-4 rounded-xl border border-slate-800 flex justify-between items-center">
+                <div>
+                  <h2 className="text-lg font-extrabold text-white uppercase">Retícula de la Carrera de: Ingeniería en Tecnologías de la Información y Comunicaciones</h2>
+                  <p className="text-xs text-blue-400 font-bold uppercase mt-1">Especialidad: Internet de las Cosas, Ciberseguridad y Base de Datos (Clave: ITIE-ICB-2022-01)</p>
+                </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-9 gap-2.5 overflow-x-auto pb-6">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((sem) => (
-                  <div key={sem} className="flex flex-col gap-2.5 min-w-[155px]">
-                    <div className="bg-blue-950 border border-blue-700 text-blue-200 text-center py-2 rounded-lg font-extrabold text-xs uppercase">{sem}° Semestre</div>
-                    {(materias || []).filter((m) => m.semestre === sem).map((m) => (
-                      <div key={m.id} onClick={() => { setMateriaSeleccionada(m.id); setVistaActual(usuarioActivo ? "subir" : "auth"); }} className={`p-2.5 rounded-lg cursor-pointer transition flex flex-col justify-between min-h-[115px] ${m.total_evidencias > 0 ? "bg-emerald-950 border-2 border-emerald-400 text-white" : "bg-slate-900 border border-slate-700 hover:border-blue-400"}`}>
-                        <div className="font-bold text-[11px] text-center leading-tight">{m.nombre}</div>
-                        <div className="mt-2 pt-1.5 border-t border-white/10 text-[10px] flex justify-between font-mono"><span className="text-blue-300">{m.clave}</span><span>{m.total_evidencias > 0 ? `✓ ${m.total_evidencias}` : "+ Subir"}</span></div>
+              
+              <div className="flex gap-8 overflow-x-auto pb-10 pt-4 px-2 relative" style={{ minWidth: "max-content" }}>
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((sem, colIdx) => (
+                  <div key={sem} className="flex flex-col gap-6 w-[165px] relative z-10">
+                    {/* Encabezado del Semestre */}
+                    <div className="bg-slate-800 border-2 border-slate-600 text-white text-center py-1.5 rounded-md font-extrabold text-xs uppercase shadow-lg">
+                      Semestre {sem}
+                    </div>
+                    
+                    {/* Lista de Materias */}
+                    {(materias || []).filter((m) => m.semestre === sem).map((m, rowIdx) => (
+                      <div key={m.id} className="relative group">
+                        
+                        {/* Línea conectora (simulación de flujo hacia el siguiente semestre) */}
+                        {sem < 9 && (
+                          <div className="hidden md:block absolute top-1/2 -right-8 w-8 h-[2px] bg-slate-600 z-0">
+                            <div className="absolute -right-1 -top-1 w-2.5 h-2.5 border-t-2 border-r-2 border-slate-600 transform rotate-45"></div>
+                          </div>
+                        )}
+                        
+                        {/* Tarjeta Oficial ITP */}
+                        <div 
+                          onClick={() => { setMateriaSeleccionada(m.id); setVistaActual(usuarioActivo ? "subir" : "auth"); }} 
+                          className={`relative z-10 bg-white text-black border-2 cursor-pointer transition-transform hover:scale-105 shadow-md flex flex-col h-[115px]
+                            ${sem === 9 ? "border-blue-600 bg-blue-50" : "border-slate-800"}
+                            ${m.total_evidencias > 0 ? "ring-4 ring-emerald-500" : ""}
+                          `}
+                        >
+                          {/* Fila 1: SATCA */}
+                          <div className="text-[10px] text-center border-b-2 border-slate-800 py-0.5 font-bold font-mono bg-slate-200">
+                            {m.satca || "3-2-5"}
+                          </div>
+                          
+                          {/* Fila 2: Nombre de la Materia */}
+                          <div className="text-[10px] font-extrabold text-center leading-tight p-1.5 flex-1 flex items-center justify-center">
+                            {m.nombre}
+                          </div>
+                          
+                          {/* Fila 3: Claves y Créditos */}
+                          <div className="grid grid-cols-3 border-t-2 border-slate-800 text-[9px] font-bold font-mono divide-x-2 divide-slate-800 bg-slate-200">
+                            <div className="py-0.5 text-center truncate px-0.5" title={m.clave}>
+                              {m.clave}
+                            </div>
+                            <div className="py-0.5 text-center">
+                              {m.creditos || "5"}
+                            </div>
+                            <div className={`py-0.5 text-center text-white ${m.total_evidencias > 0 ? "bg-emerald-600" : "bg-slate-700"}`}>
+                              {m.total_evidencias > 0 ? `✓ ${m.total_evidencias}` : "+"}
+                            </div>
+                          </div>
+                        </div>
+                        {/* Tooltip Hover */}
+                        <div className="absolute opacity-0 group-hover:opacity-100 transition bottom-full left-0 mb-1 w-full text-center pointer-events-none z-20">
+                           <span className="bg-slate-900 text-white text-[10px] font-bold py-1 px-2 rounded">Subir Proyecto</span>
+                        </div>
                       </div>
                     ))}
                   </div>
