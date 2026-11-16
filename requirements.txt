@@ -7,3 +7,4 @@ google-genai
 dnspython
 resend
 openpyxl
+psycopg2-binary
