@@ -387,7 +387,7 @@ async def analizar_evidencia_con_ia(titulo: str, descripcion: str, materia_nombr
     
     try:
         response = await client.aio.models.generate_content(
-            model="gemini-2.0-flash", 
+            model="gemini-1.5-flash", # <--- MODELO ACTUALIZADO AQUÍ
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json", 
@@ -440,7 +440,6 @@ async def subir_evidencia(estudiante_id: int = Form(...), titulo: str = Form(...
     if not materia:
         raise HTTPException(status_code=404, detail="La materia seleccionada no existe.")
 
-    # FIX ERROR 1: Crear competencia si no existe
     competencia = db.query(Competencia).filter(Competencia.materia_id == materia.id).first()
     if not competencia:
         competencia = Competencia(
@@ -449,7 +448,7 @@ async def subir_evidencia(estudiante_id: int = Form(...), titulo: str = Form(...
             descripcion=f"Competencia general de {materia.nombre}"
         )
         db.add(competencia)
-        db.flush() # Genera el ID temporal
+        db.flush() 
 
     archivos_validos = [a for a in archivos if a.filename]
     if not archivos_validos and not url_enlace_externo: raise HTTPException(status_code=400, detail="Adjunta al menos un archivo o enlace.")
@@ -478,8 +477,12 @@ async def subir_evidencia(estudiante_id: int = Form(...), titulo: str = Form(...
         registro_archivo = ArchivoEvidencia(evidencia_id=nueva_evidencia.id, nombre_original=nombre_limpio, ruta_servidor=ruta_url, mime_type=mime_detectado, tipo_archivo=tipo_arch, tamano_bytes=tamano, sha256_hash=hash_sha256, resumen_extraido_ia=texto_interno[:300])
         db.add(registro_archivo)
 
-    # FIX ERROR 2: Llamada con await a Gemini
-    resultado_ia = await analizar_evidencia_con_ia(titulo, descripcion, materia.nombre, textos_para_ia, url_enlace_externo or "")
+    try:
+        resultado_ia = await analizar_evidencia_con_ia(titulo, descripcion, materia.nombre, textos_para_ia, url_enlace_externo or "")
+    except Exception as e:
+        print(f"Error en IA: {e}")
+        resultado_ia = {"tecnologias": ["Análisis pendiente"], "resumen_cv": "Proyecto guardado. La IA no pudo analizarlo en este momento."}
+        
     nueva_evidencia.tags_ia_detectados = ", ".join(resultado_ia["tecnologias"])
     nueva_evidencia.analisis_ia = resultado_ia["resumen_cv"]
     db.commit()
