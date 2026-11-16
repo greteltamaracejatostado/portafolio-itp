@@ -4,17 +4,42 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/png" href="logo.png" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <title>Syntax Alpha - Portafolio Académico</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Outfit', 'sans-serif'] },
+          colors: { slate: { 950: '#020617' } }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Scrollbar personalizado para que se vea elegante */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); }
+    ::-webkit-scrollbar-thumb { background: rgba(59, 130, 246, 0.5); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(59, 130, 246, 0.8); }
+    
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+  </style>
 </head>
-<body class="bg-slate-950 text-slate-100">
+<body class="bg-slate-950 text-slate-100 font-sans antialiased">
   
-  <!-- Imagen de fondo tecnológica con opacidad -->
-  <div className="fixed inset-0 bg-[url('fondo.png')] bg-cover bg-center opacity-20 pointer-events-none z-0"></div>
+  <!-- Fondo tecnológico -->
+  <div className="fixed inset-0 bg-[url('fondo.png')] bg-cover bg-center opacity-10 pointer-events-none z-0 mix-blend-screen"></div>
+  <div className="fixed inset-0 bg-gradient-to-br from-slate-950 via-slate-900/90 to-blue-950/40 pointer-events-none z-0"></div>
 
   <div id="root" className="relative z-10"></div>
 
@@ -22,62 +47,49 @@
     const { useState, useEffect, useRef } = React;
     const API_BASE = window.location.origin.includes("http") ? window.location.origin : "http://localhost:8000";
 
-    // Diccionario de dependencias (Materias previas y siguientes) basado en la retícula ITIC-2010-225
+    // Diccionario de dependencias
     const RETICULA_DEPENDENCIAS = {
-      "ACF-2301": { previas: [], siguientes: ["ACF-0902", "TIE-1018"] }, // Cálculo Diferencial
-      "AEF-1032": { previas: [], siguientes: ["AEB-1054", "TID-1012"] }, // Fundamentos de Programación
-      "TIF-1019": { previas: [], siguientes: ["TIF-1020"] }, // Mat. Discretas I
-      "TIP-1017": { previas: [], siguientes: ["TIF-1013"] }, // Intro TICs
-      "ACF-0902": { previas: ["ACF-2301"], siguientes: ["TIF-1021"] }, // Cálculo Integral
-      "AEB-1054": { previas: ["AEF-1032"], siguientes: ["AEF-1031"] }, // POO
-      "TIF-1020": { previas: ["TIF-1019"], siguientes: ["TIF-1018"] }, // Mat. Discretas II
-      "ACF-0903": { previas: [], siguientes: ["TIE-1018"] }, // Álgebra Lineal
-      "TIF-1009": { previas: [], siguientes: ["TIF-1021"] }, // Contabilidad y Costos
-      "AEF-1052": { previas: [], siguientes: ["TIF-1021"] }, // Probabilidad
-      "TIE-1018": { previas: ["ACF-2301", "ACF-0903"], siguientes: ["TID-1004"] }, // Mat. Aplicadas
-      "TID-1012": { previas: ["AEF-1032"], siguientes: ["AEF-1031"] }, // Estructuras de Datos
-      "TIF-1021": { previas: ["ACF-0902", "TIF-1009", "AEF-1052"], siguientes: [] }, // Toma de Decisiones
-      "TIC-1011": { previas: [], siguientes: ["TIF-1013"] }, // Electricidad
-      "TIF-1013": { previas: ["TIP-1017", "TIC-1011"], siguientes: ["TIC-1002"] }, // Fundamentos de Redes
-      "AEF-1031": { previas: ["AEB-1054", "TID-1012"], siguientes: ["TIF-1004"] }, // Base de Datos
-      // NOTA: Para no hacer el código infinitamente largo, he mapeado las principales. 
-      // Si una materia no está aquí, el sistema mostrará "Sin dependencias registradas".
+      "ACF-2301": { previas: [], siguientes: ["ACF-0902", "TIE-1018"] },
+      "AEF-1032": { previas: [], siguientes: ["AEB-1054", "TID-1012"] },
+      "TIF-1019": { previas: [], siguientes: ["TIF-1020"] },
+      "TIP-1017": { previas: [], siguientes: ["TIF-1013"] },
+      "ACF-0902": { previas: ["ACF-2301"], siguientes: ["TIF-1021"] },
+      "AEB-1054": { previas: ["AEF-1032"], siguientes: ["AEF-1031"] },
+      "TIF-1020": { previas: ["TIF-1019"], siguientes: ["TIF-1018"] },
+      "ACF-0903": { previas: [], siguientes: ["TIE-1018"] },
+      "TIF-1009": { previas: [], siguientes: ["TIF-1021"] },
+      "AEF-1052": { previas: [], siguientes: ["TIF-1021"] },
+      "TIE-1018": { previas: ["ACF-2301", "ACF-0903"], siguientes: ["TID-1004"] },
+      "TID-1012": { previas: ["AEF-1032"], siguientes: ["AEF-1031"] },
+      "TIF-1021": { previas: ["ACF-0902", "TIF-1009", "AEF-1052"], siguientes: [] },
+      "TIC-1011": { previas: [], siguientes: ["TIF-1013"] },
+      "TIF-1013": { previas: ["TIP-1017", "TIC-1011"], siguientes: ["TIC-1002"] },
+      "AEF-1031": { previas: ["AEB-1054", "TID-1012"], siguientes: ["TIF-1004"] },
     };
 
     function PortafolioITPApp() {
       const [usuarioActivo, setUsuarioActivo] = useState(() => {
-        try {
-          const guardado = localStorage.getItem("itp_usuario_sesion");
-          return guardado ? JSON.parse(guardado) : null;
-        } catch { return null; }
+        try { const g = localStorage.getItem("itp_usuario_sesion"); return g ? JSON.parse(g) : null; } catch { return null; }
       });
 
       const [vistaActual, setVistaActual] = useState(usuarioActivo ? "portafolio" : "inicio");
       const [materias, setMaterias] = useState([]);
 
-      // Flujos de Autenticación
+      // Auth States
       const [modoAuth, setModoAuth] = useState("registro");
       const [nombreReg, setNombreReg] = useState("");
       const [matriculaReg, setMatriculaReg] = useState("");
       const [correoReg, setCorreoReg] = useState("");
       const [passwordReg, setPasswordReg] = useState("");
-      const [confirmarPasswordReg, setConfirmarPasswordReg] = useState("");
-      const [modoSemestreReg, setModoSemestreReg] = useState("AUTOMATICO");
-      const [semestreManualReg, setSemestreManualReg] = useState(1);
-      const [fechaInicioReg, setFechaInicioReg] = useState("");
-      const [fechaFinReg, setFechaFinReg] = useState("");
       const [fotoReg, setFotoReg] = useState(null);
-
       const [estadoCorreoMX, setEstadoCorreoMX] = useState(null);
-      const [validandoMX, setValidandoMX] = useState(false);
-
       const [correoEnProceso, setCorreoEnProceso] = useState("");
       const [digitosOTP, setDigitosOTP] = useState(["", "", "", "", "", ""]);
       const [errorAuth, setErrorAuth] = useState(null);
       const [procesandoAuth, setProcesandoAuth] = useState(false);
       const inputsRef = useRef([]);
 
-      // Estados de Subida de Evidencias e IA
+      // Evidencias States
       const [materiaSeleccionada, setMateriaSeleccionada] = useState("");
       const [titulo, setTitulo] = useState("");
       const [descripcion, setDescripcion] = useState("");
@@ -86,14 +98,14 @@
       const [subiendo, setSubiendo] = useState(false);
       const [alerta, setAlerta] = useState(null);
 
-      // Estados de Portafolio / CV
+      // Portafolio States
       const [datosPortafolio, setDatosPortafolio] = useState(null);
       const [semestreActivoHistorial, setSemestreActivoHistorial] = useState("TODOS");
       const [archivoEnVisor, setArchivoEnVisor] = useState(null);
       const [textoCodigoVisor, setTextoCodigoVisor] = useState("");
       
-      // Estado para el modal de la retícula
-      const [materiaModal, setMateriaModal] = useState(null);
+      // Estado para la Retícula Interactiva
+      const [materiaFoco, setMateriaFoco] = useState(null);
 
       const cargarDatosUsuario = async (userObj = usuarioActivo) => {
         try {
@@ -110,149 +122,75 @@
             const rPort = await fetch(`${API_BASE}/api/portafolio/${userObj.id}`);
             if (rPort.ok) setDatosPortafolio(await rPort.json());
           }
-        } catch (err) {
-          console.error(err);
-        }
+        } catch (err) { console.error(err); }
       };
 
       useEffect(() => { cargarDatosUsuario(); }, [usuarioActivo]);
 
-      const verificarCorreoConGoogleDNS = async (emailValor) => {
-        // ... (Misma lógica de validación)
-        const limpio = (emailValor || "").trim().toLowerCase();
-        if (!limpio) { setEstadoCorreoMX(null); return false; }
-        const regexEmail = /^[a-zA-Z0-9][a-zA-Z0-9_.+-]{1,62}@[a-zA-Z0-9-]+\.[a-zA-Z]{2,}$/;
-        if (!regexEmail.test(limpio)) { setEstadoCorreoMX({ valido: false, texto: "Ingresa un formato de correo electrónico válido." }); return false; }
-        setValidandoMX(true);
-        try {
-          const [userPart, dominio] = limpio.split("@");
-          const resp = await fetch(`https://dns.google/resolve?name=${encodeURIComponent(dominio)}&type=MX`);
-          const data = await resp.json();
-          if (data.Status === 0 && Array.isArray(data.Answer) && data.Answer.length > 0) {
-            setEstadoCorreoMX({ valido: true, texto: `Correo válido verificado (${dominio}).` });
-            return true;
-          } else {
-            setEstadoCorreoMX({ valido: false, texto: `El dominio @${dominio} no existe.` });
-            return false;
-          }
-        } catch {
-          setEstadoCorreoMX({ valido: true, texto: "Formato válido." });
-          return true;
-        } finally { setValidandoMX(false); }
-      };
-
       const cambiarDigitoOTP = (index, valor) => {
         const soloNumero = valor.replace(/[^0-9]/g, "").slice(-1);
-        const nuevos = [...digitosOTP];
-        nuevos[index] = soloNumero;
-        setDigitosOTP(nuevos);
+        const nuevos = [...digitosOTP]; nuevos[index] = soloNumero; setDigitosOTP(nuevos);
         if (soloNumero && index < 5 && inputsRef.current[index + 1]) inputsRef.current[index + 1].focus();
       };
 
-      const pegarCodigoCompleto = (e) => {
-        const pegado = e.clipboardData.getData("text").replace(/[^0-9]/g, "").slice(0, 6);
-        if (pegado.length > 0) {
-          const nuevos = ["", "", "", "", "", ""];
-          for (let i = 0; i < pegado.length; i++) nuevos[i] = pegado[i];
-          setDigitosOTP(nuevos);
-        }
-      };
-
       const manejarRegistro = async (e) => {
-        e.preventDefault();
-        setErrorAuth(null);
-        const esCorreoValido = await verificarCorreoConGoogleDNS(correoReg);
-        if (!esCorreoValido) { setErrorAuth({ tipo: "error", msg: "Ingresa un correo válido." }); return; }
-        setProcesandoAuth(true);
+        e.preventDefault(); setErrorAuth(null); setProcesandoAuth(true);
         const fd = new FormData();
-        fd.append("nombre_completo", nombreReg);
-        fd.append("matricula", matriculaReg);
-        fd.append("correo", correoReg.trim().toLowerCase());
-        fd.append("password", passwordReg);
+        fd.append("nombre_completo", nombreReg); fd.append("matricula", matriculaReg);
+        fd.append("correo", correoReg.trim().toLowerCase()); fd.append("password", passwordReg);
         if (fotoReg) fd.append("foto", fotoReg);
-
         try {
           const res = await fetch(`${API_BASE}/api/auth/registro`, { method: "POST", body: fd });
           const data = await res.json();
           if (res.ok && data.requiere_verificacion) {
-            setCorreoEnProceso(data.correo);
-            setDigitosOTP(["", "", "", "", "", ""]);
-            setErrorAuth({ tipo: "ok", msg: `Código enviado a ${data.correo}.` });
-            setModoAuth("verificar_correo");
-          } else {
-            setErrorAuth({ tipo: "error", msg: data.detail || "Error al registrar." });
-          }
-        } catch { setErrorAuth({ tipo: "error", msg: "Error de conexión." }); } 
-        finally { setProcesandoAuth(false); }
+            setCorreoEnProceso(data.correo); setDigitosOTP(["", "", "", "", "", ""]);
+            setErrorAuth({ tipo: "ok", msg: `Código enviado a ${data.correo}.` }); setModoAuth("verificar_correo");
+          } else { setErrorAuth({ tipo: "error", msg: data.detail || "Error al registrar." }); }
+        } catch { setErrorAuth({ tipo: "error", msg: "Error de conexión." }); } finally { setProcesandoAuth(false); }
       };
 
       const manejarVerificarCorreo = async (e) => {
-        e.preventDefault();
-        setErrorAuth(null);
+        e.preventDefault(); setErrorAuth(null);
         const codigoUnido = digitosOTP.join("");
         if (codigoUnido.length !== 6) { setErrorAuth({ tipo: "error", msg: "Ingresa los 6 dígitos." }); return; }
         setProcesandoAuth(true);
-        const fd = new FormData();
-        fd.append("correo", correoEnProceso);
-        fd.append("codigo", codigoUnido);
+        const fd = new FormData(); fd.append("correo", correoEnProceso); fd.append("codigo", codigoUnido);
         try {
           const res = await fetch(`${API_BASE}/api/auth/verificar-correo`, { method: "POST", body: fd });
           const data = await res.json();
           if (res.ok && data.usuario) {
             localStorage.setItem("itp_usuario_sesion", JSON.stringify(data.usuario));
-            setUsuarioActivo(data.usuario);
-            await cargarDatosUsuario(data.usuario);
-            setVistaActual("portafolio");
+            setUsuarioActivo(data.usuario); await cargarDatosUsuario(data.usuario); setVistaActual("portafolio");
           } else { setErrorAuth({ tipo: "error", msg: data.detail || "Código incorrecto." }); }
-        } catch { setErrorAuth({ tipo: "error", msg: "Error." }); } 
-        finally { setProcesandoAuth(false); }
+        } catch { setErrorAuth({ tipo: "error", msg: "Error." }); } finally { setProcesandoAuth(false); }
       };
 
       const manejarLogin = async (e) => {
-        e.preventDefault();
-        setErrorAuth(null);
-        setProcesandoAuth(true);
-        const fd = new FormData();
-        fd.append("identificador", matriculaReg);
-        fd.append("password", passwordReg);
+        e.preventDefault(); setErrorAuth(null); setProcesandoAuth(true);
+        const fd = new FormData(); fd.append("identificador", matriculaReg); fd.append("password", passwordReg);
         try {
           const res = await fetch(`${API_BASE}/api/auth/login`, { method: "POST", body: fd });
           const data = await res.json();
           if (res.ok && data.usuario) {
             localStorage.setItem("itp_usuario_sesion", JSON.stringify(data.usuario));
-            setUsuarioActivo(data.usuario);
-            await cargarDatosUsuario(data.usuario);
-            setVistaActual("portafolio");
+            setUsuarioActivo(data.usuario); await cargarDatosUsuario(data.usuario); setVistaActual("portafolio");
           } else { setErrorAuth({ tipo: "error", msg: data.detail || "Credenciales incorrectas." }); }
-        } catch { setErrorAuth({ tipo: "error", msg: "Error." }); } 
-        finally { setProcesandoAuth(false); }
-      };
-
-      const cerrarSesion = () => {
-        localStorage.removeItem("itp_usuario_sesion");
-        setUsuarioActivo(null);
-        setDatosPortafolio(null);
-        setVistaActual("inicio");
+        } catch { setErrorAuth({ tipo: "error", msg: "Error." }); } finally { setProcesandoAuth(false); }
       };
 
       const guardarEvidenciaConIA = async (e) => {
-        e.preventDefault();
-        if (!usuarioActivo) return;
-        setSubiendo(true);
-        setAlerta(null);
+        e.preventDefault(); if (!usuarioActivo) return;
+        setSubiendo(true); setAlerta(null);
         const fd = new FormData();
-        fd.append("estudiante_id", usuarioActivo.id);
-        fd.append("titulo", titulo);
-        fd.append("descripcion", descripcion);
-        fd.append("materia_id", materiaSeleccionada);
+        fd.append("estudiante_id", usuarioActivo.id); fd.append("titulo", titulo);
+        fd.append("descripcion", descripcion); fd.append("materia_id", materiaSeleccionada);
         if (urlExterna.trim()) fd.append("url_enlace_externo", urlExterna.trim());
         colaArchivos.forEach((f) => fd.append("archivos", f));
-
         try {
           const res = await fetch(`${API_BASE}/api/evidencias/subir`, { method: "POST", body: fd });
           const data = await res.json();
           if (res.ok) {
-            setAlerta({ tipo: "ok", msg: data.mensaje, detalleIA: data.analisis_ia });
+            setAlerta({ tipo: "ok", msg: data.mensaje });
             setTitulo(""); setDescripcion(""); setUrlExterna(""); setColaArchivos([]);
             await cargarDatosUsuario();
           } else { setAlerta({ tipo: "error", msg: data.detail || "Error al subir." }); }
@@ -260,206 +198,175 @@
         setSubiendo(false);
       };
 
-      const previsualizarArchivo = async (arch) => {
-        setArchivoEnVisor(arch);
-        setTextoCodigoVisor("");
-        const n = (arch.nombre || "").toLowerCase();
-        if (arch.tipo === "CODIGO" || n.endsWith(".txt") || n.endsWith(".py") || n.endsWith(".sql")) {
-          const res = await fetch(`${API_BASE}/api/archivos/leer-texto/${arch.id}`);
-          if (res.ok) setTextoCodigoVisor(await res.text());
-        }
-      };
-
-      const construirHistorialPorSemestre = () => {
-        const mapaEvidenciasPorMateria = {};
-        if (datosPortafolio && Array.isArray(datosPortafolio.portafolio_por_materia)) {
-          datosPortafolio.portafolio_por_materia.forEach((bloque) => {
-            if (bloque && bloque.clave) mapaEvidenciasPorMateria[bloque.clave] = bloque.evidencias || [];
-          });
-        }
-        return [1, 2, 3, 4, 5, 6, 7, 8, 9].map((numSem) => {
-          const materiasDelSemestre = (materias || []).filter((m) => m.semestre === numSem);
-          const materiasConHistorial = materiasDelSemestre.map((m) => ({
-            ...m, evidencias: mapaEvidenciasPorMateria[m.clave] || [],
-          }));
-          const totalEvidenciasSemestre = materiasConHistorial.reduce((acc, m) => acc + (m.evidencias?.length || 0), 0);
-          return { semestre: numSem, materias: materiasConHistorial, totalEvidenciasSemestre };
-        }).filter((s) => semestreActivoHistorial === "TODOS" || s.semestre === Number(semestreActivoHistorial));
-      };
-
-      // Función para obtener los nombres de las materias previas/siguientes por su clave
       const obtenerNombreMateria = (clave) => {
         const m = materias.find(mat => mat.clave === clave);
         return m ? m.nombre : clave;
       };
 
       return (
-        <div className="min-h-screen text-slate-100 font-sans relative z-10">
-          {/* BARRA DE NAVEGACIÓN CON LOGO */}
-          <nav className="border-b border-white/10 bg-slate-900/80 backdrop-blur-md sticky top-0 z-40 print:hidden">
+        <div className="min-h-screen font-sans">
+          {/* NAVBAR */}
+          <nav className="border-b border-white/5 bg-slate-900/60 backdrop-blur-xl sticky top-0 z-40 print:hidden shadow-2xl">
             <div className="max-w-7xl mx-auto px-6 py-4 flex flex-wrap justify-between items-center gap-4">
-              <div className="flex items-center gap-3 cursor-pointer" onClick={() => setVistaActual("inicio")}>
-                <img src="logo.png" alt="Syntax Alpha" className="w-12 h-12 object-contain drop-shadow-lg" />
+              <div className="flex items-center gap-4 cursor-pointer group" onClick={() => { setVistaActual("inicio"); setMateriaFoco(null); }}>
+                <img src="logo.png" alt="Syntax Alpha" className="w-12 h-12 object-contain drop-shadow-[0_0_10px_rgba(59,130,246,0.5)] group-hover:scale-105 transition-transform" />
                 <div>
                   <span className="font-extrabold text-white text-xl block leading-none tracking-wide">Syntax Alpha</span>
-                  <span className="text-[11px] text-blue-400 font-bold tracking-widest uppercase">Portafolio ITICs • ITP</span>
+                  <span className="text-[10px] text-blue-400 font-bold tracking-[0.2em] uppercase mt-1 block">Portafolio ITICs • ITP</span>
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <button onClick={() => setVistaActual("inicio")} className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${vistaActual === "inicio" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : "bg-slate-800/80 hover:bg-slate-700"}`}>Inicio</button>
-                <button onClick={() => setVistaActual("reticula")} className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${vistaActual === "reticula" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : "bg-slate-800/80 hover:bg-slate-700"}`}>Retícula</button>
+                <button onClick={() => { setVistaActual("inicio"); setMateriaFoco(null); }} className={`px-5 py-2.5 text-xs font-bold rounded-xl transition-all ${vistaActual === "inicio" ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]" : "bg-slate-800/50 text-slate-300 hover:bg-slate-800 hover:text-white"}`}>Inicio</button>
+                <button onClick={() => { setVistaActual("reticula"); setMateriaFoco(null); }} className={`px-5 py-2.5 text-xs font-bold rounded-xl transition-all ${vistaActual === "reticula" ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]" : "bg-slate-800/50 text-slate-300 hover:bg-slate-800 hover:text-white"}`}>Retícula</button>
                 {usuarioActivo ? (
                   <>
-                    <button onClick={() => setVistaActual("subir")} className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${vistaActual === "subir" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : "bg-slate-800/80 hover:bg-slate-700"}`}>+ Evidencia</button>
-                    <button onClick={() => { cargarDatosUsuario(); setVistaActual("portafolio"); }} className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${vistaActual === "portafolio" ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/50" : "bg-emerald-700/80 hover:bg-emerald-600 text-white"}`}>Mi CV</button>
-                    <button onClick={cerrarSesion} className="px-4 py-2 text-xs font-bold rounded-lg bg-red-950/80 text-red-300 border border-red-800/50 hover:bg-red-900 transition-all">Salir</button>
+                    <button onClick={() => setVistaActual("subir")} className={`px-5 py-2.5 text-xs font-bold rounded-xl transition-all ${vistaActual === "subir" ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]" : "bg-slate-800/50 text-slate-300 hover:bg-slate-800 hover:text-white"}`}>+ Evidencia</button>
+                    <button onClick={() => { cargarDatosUsuario(); setVistaActual("portafolio"); setMateriaFoco(null); }} className={`px-5 py-2.5 text-xs font-bold rounded-xl transition-all ${vistaActual === "portafolio" ? "bg-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]" : "bg-emerald-900/50 text-emerald-300 border border-emerald-700/50 hover:bg-emerald-800"}`}>Mi Portafolio</button>
+                    <button onClick={() => { localStorage.removeItem("itp_usuario_sesion"); setUsuarioActivo(null); setDatosPortafolio(null); setVistaActual("inicio"); }} className="px-5 py-2.5 text-xs font-bold rounded-xl bg-red-950/40 text-red-400 border border-red-900/50 hover:bg-red-900/60 transition-all">Salir</button>
                   </>
                 ) : (
                   <>
-                    <button onClick={() => { setModoAuth("login"); setErrorAuth(null); setVistaActual("auth"); }} className="px-4 py-2 text-xs font-bold rounded-lg bg-slate-800/80 hover:bg-slate-700 transition-all">Iniciar Sesión</button>
-                    <button onClick={() => { setModoAuth("registro"); setErrorAuth(null); setVistaActual("auth"); }} className="px-4 py-2 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-500/50 transition-all">Crear Cuenta</button>
+                    <button onClick={() => { setModoAuth("login"); setErrorAuth(null); setVistaActual("auth"); }} className="px-5 py-2.5 text-xs font-bold rounded-xl bg-slate-800/50 text-white hover:bg-slate-800 transition-all border border-slate-700">Iniciar Sesión</button>
+                    <button onClick={() => { setModoAuth("registro"); setErrorAuth(null); setVistaActual("auth"); }} className="px-5 py-2.5 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-all">Crear Cuenta</button>
                   </>
                 )}
               </div>
             </div>
           </nav>
 
-          {/* 1. PÁGINA DE INICIO */}
+          {/* INICIO */}
           {vistaActual === "inicio" && (
-            <main className="max-w-6xl mx-auto px-6 py-20 text-center relative">
-              <div className="absolute top-10 left-1/2 -translate-x-1/2 w-96 h-96 bg-blue-600/20 blur-[100px] rounded-full pointer-events-none"></div>
-              <span className="px-4 py-1.5 rounded-full text-xs font-bold bg-blue-950/80 text-blue-300 border border-blue-800/50 shadow-lg backdrop-blur-sm">
-                Instituto Tecnológico de Puebla • Ingeniería en TICs
-              </span>
-              <h1 className="text-5xl md:text-7xl font-extrabold mt-8 text-white leading-tight drop-shadow-2xl">
-                Tu Portafolio Académico <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">Impulsado por IA</span>
+            <main className="max-w-5xl mx-auto px-6 py-24 text-center relative">
+              <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-blue-600/20 blur-[120px] rounded-full pointer-events-none"></div>
+              <span className="px-4 py-1.5 rounded-full text-xs font-bold bg-blue-950/50 text-blue-300 border border-blue-800/50 shadow-lg backdrop-blur-sm">Ingeniería en TICs • ITP</span>
+              <h1 className="text-5xl md:text-7xl font-extrabold mt-8 text-white leading-tight tracking-tight">
+                Tu Portafolio Académico <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-cyan-400 to-emerald-400">Impulsado por IA</span>
               </h1>
-              <p className="mt-8 text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed">
+              <p className="mt-8 text-lg text-slate-400 max-w-2xl mx-auto leading-relaxed">
                 Bienvenido a <strong>Syntax Alpha</strong>. Registra tus proyectos, deja que nuestra Inteligencia Artificial analice tu código y genera automáticamente un Currículum Técnico verificable.
               </p>
               <div className="mt-12 flex justify-center gap-4">
                 {!usuarioActivo ? (
-                  <>
-                    <button onClick={() => { setModoAuth("registro"); setErrorAuth(null); setVistaActual("auth"); }} className="px-8 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 font-extrabold text-white shadow-xl shadow-blue-600/30 transition-all transform hover:scale-105">Comenzar Ahora</button>
-                    <button onClick={() => { setModoAuth("login"); setErrorAuth(null); setVistaActual("auth"); }} className="px-8 py-4 rounded-xl bg-slate-800/80 hover:bg-slate-700 font-bold text-slate-200 border border-slate-700 backdrop-blur-sm transition-all">Iniciar Sesión</button>
-                  </>
+                  <button onClick={() => { setModoAuth("registro"); setErrorAuth(null); setVistaActual("auth"); }} className="px-8 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 font-extrabold text-white shadow-[0_0_20px_rgba(37,99,235,0.4)] transition-all transform hover:-translate-y-1">Comenzar Ahora</button>
                 ) : (
-                  <button onClick={() => setVistaActual("portafolio")} className="px-8 py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-extrabold text-white shadow-xl shadow-emerald-600/30 transition-all transform hover:scale-105">Ir a Mi Portafolio →</button>
+                  <button onClick={() => setVistaActual("portafolio")} className="px-8 py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-extrabold text-white shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all transform hover:-translate-y-1">Ir a Mi Portafolio →</button>
                 )}
               </div>
             </main>
           )}
 
-          {/* 2. MÓDULO DE CUENTA Y VERIFICACIÓN EN DOS PASOS */}
+          {/* AUTH (FORMULARIOS) */}
           {vistaActual === "auth" && (
-            <section className="max-w-xl mx-auto px-6 py-12">
-              <div className="p-8 rounded-2xl bg-slate-900/90 backdrop-blur-md border border-slate-800 shadow-2xl">
-                
-                {(modoAuth === "registro" || modoAuth === "login") && (
-                  <div className="flex gap-2 mb-6 p-1 bg-slate-950/80 rounded-xl border border-slate-800">
-                    <button onClick={() => { setModoAuth("registro"); setErrorAuth(null); }} className={`flex-1 py-2.5 rounded-lg text-xs font-extrabold transition ${modoAuth === "registro" ? "bg-blue-600 text-white shadow-md" : "text-slate-400"}`}>Crear Cuenta</button>
-                    <button onClick={() => { setModoAuth("login"); setErrorAuth(null); }} className={`flex-1 py-2.5 rounded-lg text-xs font-extrabold transition ${modoAuth === "login" ? "bg-blue-600 text-white shadow-md" : "text-slate-400"}`}>Iniciar Sesión</button>
-                  </div>
-                )}
+            <section className="max-w-md mx-auto px-6 py-16">
+              <div className="glass-panel p-8 rounded-3xl shadow-2xl">
+                <div className="flex gap-2 mb-8 p-1.5 bg-slate-950/50 rounded-xl border border-white/5">
+                  <button onClick={() => { setModoAuth("registro"); setErrorAuth(null); }} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${modoAuth === "registro" ? "bg-slate-800 text-white shadow-md" : "text-slate-500 hover:text-slate-300"}`}>Registro</button>
+                  <button onClick={() => { setModoAuth("login"); setErrorAuth(null); }} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${modoAuth === "login" ? "bg-slate-800 text-white shadow-md" : "text-slate-500 hover:text-slate-300"}`}>Login</button>
+                </div>
 
                 {errorAuth && (
-                  <div className={`mb-5 p-4 rounded-xl border text-xs font-semibold leading-relaxed ${
-                    errorAuth.tipo === "ok" ? "bg-emerald-950/70 border-emerald-500 text-emerald-200" :
-                    errorAuth.tipo === "info" ? "bg-blue-950/70 border-blue-500 text-blue-200" :
-                    "bg-red-950/70 border-red-500 text-red-200"
-                  }`}>
-                    {errorAuth.msg}
-                  </div>
+                  <div className={`mb-6 p-4 rounded-xl border text-sm font-medium ${errorAuth.tipo === "ok" ? "bg-emerald-950/50 border-emerald-500/50 text-emerald-300" : "bg-red-950/50 border-red-500/50 text-red-300"}`}>{errorAuth.msg}</div>
                 )}
 
-                {/* REGISTRO */}
                 {modoAuth === "registro" && (
                   <form onSubmit={manejarRegistro} className="space-y-4">
-                    <div>
-                      <h2 className="text-2xl font-extrabold text-white">Crear Cuenta</h2>
-                      <p className="text-xs text-slate-400 mt-1">Únete a Syntax Alpha y verifica tu correo.</p>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div><label className="block text-xs font-bold text-blue-400 mb-1">Nombre *</label><input required type="text" value={nombreReg} onChange={e => setNombreReg(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950/50 border border-slate-700 text-sm text-white focus:border-blue-500 focus:outline-none" /></div>
-                      <div><label className="block text-xs font-bold text-blue-400 mb-1">Matrícula *</label><input required type="text" value={matriculaReg} onChange={e => setMatriculaReg(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950/50 border border-slate-700 text-sm text-white font-mono focus:border-blue-500 focus:outline-none" /></div>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-emerald-400 mb-1">Correo Personal *</label>
-                      <input required type="email" value={correoReg} onChange={e => { setCorreoReg(e.target.value); setEstadoCorreoMX(null); }} onBlur={e => verificarCorreoConGoogleDNS(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950/50 border border-slate-700 text-sm text-white font-mono focus:border-emerald-500 focus:outline-none" />
-                      {estadoCorreoMX && <p className={`text-[11px] mt-1.5 font-semibold ${estadoCorreoMX.valido ? "text-emerald-400" : "text-red-400"}`}>{estadoCorreoMX.valido ? "✓ " : "✕ "}{estadoCorreoMX.texto}</p>}
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div><label className="block text-xs font-bold text-blue-400 mb-1">Contraseña *</label><input required type="password" value={passwordReg} onChange={e => setPasswordReg(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950/50 border border-slate-700 text-sm text-white focus:border-blue-500 focus:outline-none" /></div>
-                      <div><label className="block text-xs font-bold text-slate-400 mb-1">Foto (Opcional)</label><input type="file" accept="image/*" onChange={e => setFotoReg(e.target.files[0])} className="w-full text-xs text-slate-300 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-slate-800 file:text-white cursor-pointer" /></div>
-                    </div>
-                    <button type="submit" disabled={procesandoAuth} className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 font-extrabold text-white text-sm shadow-lg transition-all mt-4">Crear Cuenta y Verificar</button>
+                    <h2 className="text-2xl font-extrabold text-white mb-6">Crear Cuenta</h2>
+                    <div><label className="block text-xs font-bold text-blue-400 mb-1">Nombre Completo *</label><input required type="text" value={nombreReg} onChange={e => setNombreReg(e.target.value)} className="w-full p-3.5 rounded-xl bg-slate-950/50 border border-slate-700 text-sm text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all outline-none" /></div>
+                    <div><label className="block text-xs font-bold text-blue-400 mb-1">Matrícula *</label><input required type="text" value={matriculaReg} onChange={e => setMatriculaReg(e.target.value)} className="w-full p-3.5 rounded-xl bg-slate-950/50 border border-slate-700 text-sm text-white font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all outline-none" /></div>
+                    <div><label className="block text-xs font-bold text-blue-400 mb-1">Correo Personal *</label><input required type="email" value={correoReg} onChange={e => setCorreoReg(e.target.value)} className="w-full p-3.5 rounded-xl bg-slate-950/50 border border-slate-700 text-sm text-white font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all outline-none" /></div>
+                    <div><label className="block text-xs font-bold text-blue-400 mb-1">Contraseña *</label><input required type="password" value={passwordReg} onChange={e => setPasswordReg(e.target.value)} className="w-full p-3.5 rounded-xl bg-slate-950/50 border border-slate-700 text-sm text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all outline-none" /></div>
+                    <button type="submit" disabled={procesandoAuth} className="w-full py-4 rounded-xl bg-blue-600 hover:bg-blue-500 font-extrabold text-white text-sm shadow-lg transition-all mt-2">Registrarse</button>
                   </form>
                 )}
 
-                {/* VERIFICAR CORREO */}
                 {modoAuth === "verificar_correo" && (
                   <form onSubmit={manejarVerificarCorreo} className="space-y-6">
-                    <div className="text-center">
-                      <h2 className="text-2xl font-extrabold text-white">Verifica tu correo</h2>
-                      <p className="text-xs text-slate-300 mt-2">Enviamos un código a <span className="font-mono text-blue-400 font-bold">{correoEnProceso}</span></p>
-                    </div>
-                    <div className="flex justify-center gap-2.5" onPaste={pegarCodigoCompleto}>
+                    <h2 className="text-2xl font-extrabold text-white text-center mb-2">Verifica tu correo</h2>
+                    <p className="text-sm text-slate-400 text-center mb-6">Enviamos un código a <span className="font-mono text-blue-400 font-bold">{correoEnProceso}</span></p>
+                    <div className="flex justify-center gap-2">
                       {digitosOTP.map((dig, idx) => (
-                        <input key={idx} ref={el => inputsRef.current[idx] = el} type="text" inputMode="numeric" maxLength="1" value={dig} onChange={e => cambiarDigitoOTP(idx, e.target.value)} className="w-12 h-14 rounded-xl bg-slate-950/50 border-2 border-slate-700 focus:border-blue-500 text-center text-2xl font-mono font-extrabold text-white outline-none" />
+                        <input key={idx} ref={el => inputsRef.current[idx] = el} type="text" maxLength="1" value={dig} onChange={e => cambiarDigitoOTP(idx, e.target.value)} className="w-12 h-14 rounded-xl bg-slate-950/50 border border-slate-700 focus:border-blue-500 text-center text-2xl font-mono font-extrabold text-white outline-none transition-all" />
                       ))}
                     </div>
-                    <button type="submit" disabled={procesandoAuth} className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 font-extrabold text-white text-sm shadow-lg">Verificar Cuenta</button>
+                    <button type="submit" disabled={procesandoAuth} className="w-full py-4 rounded-xl bg-blue-600 hover:bg-blue-500 font-extrabold text-white text-sm shadow-lg">Verificar</button>
                   </form>
                 )}
 
-                {/* LOGIN */}
                 {modoAuth === "login" && (
                   <form onSubmit={manejarLogin} className="space-y-4">
-                    <div>
-                      <h2 className="text-2xl font-extrabold text-white">Iniciar Sesión</h2>
-                    </div>
-                    <div><label className="block text-xs font-bold text-blue-400 mb-1">Correo o Matrícula *</label><input required type="text" value={matriculaReg} onChange={e => setMatriculaReg(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950/50 border border-slate-700 text-sm text-white focus:border-blue-500 focus:outline-none" /></div>
-                    <div><label className="block text-xs font-bold text-blue-400 mb-1">Contraseña *</label><input required type="password" value={passwordReg} onChange={e => setPasswordReg(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950/50 border border-slate-700 text-sm text-white focus:border-blue-500 focus:outline-none" /></div>
-                    <button type="submit" disabled={procesandoAuth} className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 font-extrabold text-white text-sm shadow-lg mt-2">Entrar</button>
+                    <h2 className="text-2xl font-extrabold text-white mb-6">Iniciar Sesión</h2>
+                    <div><label className="block text-xs font-bold text-blue-400 mb-1">Correo o Matrícula *</label><input required type="text" value={matriculaReg} onChange={e => setMatriculaReg(e.target.value)} className="w-full p-3.5 rounded-xl bg-slate-950/50 border border-slate-700 text-sm text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all outline-none" /></div>
+                    <div><label className="block text-xs font-bold text-blue-400 mb-1">Contraseña *</label><input required type="password" value={passwordReg} onChange={e => setPasswordReg(e.target.value)} className="w-full p-3.5 rounded-xl bg-slate-950/50 border border-slate-700 text-sm text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all outline-none" /></div>
+                    <button type="submit" disabled={procesandoAuth} className="w-full py-4 rounded-xl bg-blue-600 hover:bg-blue-500 font-extrabold text-white text-sm shadow-lg mt-2">Entrar</button>
                   </form>
                 )}
               </div>
             </section>
           )}
 
-          {/* 3. RETÍCULA ESTILO DIAGRAMA */}
+          {/* RETÍCULA INTERACTIVA */}
           {vistaActual === "reticula" && (
-            <section className="max-w-[1600px] mx-auto px-4 py-8">
-              <div className="mb-6 bg-slate-900/80 backdrop-blur-md p-5 rounded-xl border border-slate-700 shadow-xl flex justify-between items-center">
+            <section className="max-w-[1600px] mx-auto px-4 py-10">
+              <div className="mb-8 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-900/40 p-6 rounded-2xl border border-white/5 backdrop-blur-md">
                 <div>
-                  <h2 className="text-xl font-extrabold text-white uppercase tracking-wider">Retícula Oficial ITIC-2010-225</h2>
-                  <p className="text-xs text-blue-300 mt-1">Haz clic en una materia para ver sus materias previas y consecuentes.</p>
+                  <h2 className="text-2xl font-extrabold text-white tracking-tight">Mapa Curricular</h2>
+                  <p className="text-sm text-slate-400 mt-1">Haz clic en una materia para visualizar su ruta de dependencias.</p>
+                </div>
+                <div className="flex gap-4 text-xs font-bold bg-slate-950/50 px-4 py-2 rounded-xl border border-slate-800">
+                  <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-orange-500"></div> Requisito</div>
+                  <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-500"></div> Seleccionada</div>
+                  <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500"></div> Desbloquea</div>
                 </div>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-9 gap-4 overflow-x-auto pb-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-9 gap-4 overflow-x-auto pb-12 px-2">
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((sem) => (
-                  <div key={sem} className="flex flex-col gap-3 min-w-[170px]">
-                    <div className="bg-blue-900/60 backdrop-blur-sm border border-blue-500/50 text-white text-center py-2 rounded-lg font-extrabold text-xs uppercase shadow-lg shadow-blue-900/50">{sem}° Semestre</div>
+                  <div key={sem} className="flex flex-col gap-4 min-w-[180px]">
+                    <div className="bg-gradient-to-r from-blue-900/50 to-slate-900/50 border border-blue-500/30 text-blue-200 text-center py-3 rounded-xl font-bold text-sm shadow-[0_0_15px_rgba(59,130,246,0.1)] sticky top-20 z-10 backdrop-blur-md">{sem}° Semestre</div>
                     
                     {(materias || []).filter((m) => m.semestre === sem).map((m) => {
                       const tieneEvidencias = m.total_evidencias > 0;
+                      const deps = RETICULA_DEPENDENCIAS[m.clave] || { previas: [], siguientes: [] };
+                      
+                      // Lógica de resaltado
+                      let isFoco = materiaFoco?.id === m.id;
+                      let isPrevia = materiaFoco && deps.siguientes.includes(materiaFoco.clave); // Si la materia acutal es requisito de la enfocada
+                      let isSiguiente = materiaFoco && RETICULA_DEPENDENCIAS[materiaFoco.clave]?.previas.includes(m.clave); // Si la materia actual es consecuente de la enfocada
+                      let isAtenuada = materiaFoco && !isFoco && !isPrevia && !isSiguiente;
+
+                      // Clases dinámicas
+                      let baseClass = "relative p-4 rounded-xl cursor-pointer transition-all duration-300 flex flex-col justify-between min-h-[140px] border backdrop-blur-sm overflow-hidden group";
+                      let colorClass = "";
+                      
+                      if (isFoco) {
+                        colorClass = "bg-blue-900/60 border-blue-400 shadow-[0_0_25px_rgba(59,130,246,0.5)] scale-[1.03] z-20 ring-2 ring-blue-400";
+                      } else if (isPrevia) {
+                        colorClass = "bg-orange-950/60 border-orange-500 shadow-[0_0_20px_rgba(249,115,22,0.3)] scale-[1.02] z-10";
+                      } else if (isSiguiente) {
+                        colorClass = "bg-emerald-950/60 border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)] scale-[1.02] z-10";
+                      } else if (isAtenuada) {
+                        colorClass = "bg-slate-900/20 border-slate-800 opacity-30 grayscale";
+                      } else if (tieneEvidencias) {
+                        colorClass = "bg-slate-800/80 border-emerald-500/40 hover:border-emerald-400 hover:bg-slate-800 shadow-lg";
+                      } else {
+                        colorClass = "bg-slate-800/50 border-slate-700 hover:border-blue-500/50 hover:bg-slate-800 hover:-translate-y-1 shadow-lg";
+                      }
+
                       return (
-                        <div 
-                          key={m.id} 
-                          onClick={() => setMateriaModal(m)} 
-                          className={`relative p-3 rounded-lg cursor-pointer transition-all duration-300 flex flex-col justify-between min-h-[120px] border-2 ${
-                            tieneEvidencias 
-                              ? "bg-emerald-900/40 border-emerald-500/70 hover:border-emerald-400 text-white shadow-[0_0_15px_rgba(16,185,129,0.2)]" 
-                              : "bg-slate-800/80 border-slate-600/50 hover:border-blue-400 hover:bg-slate-700/80"
-                          }`}
-                        >
-                          <div className="font-bold text-[11px] text-center leading-tight mb-2">{m.nombre}</div>
-                          <div className="mt-auto pt-2 border-t border-white/10 text-[10px] flex justify-between font-mono items-center">
-                            <span className="text-blue-300 bg-blue-950/50 px-1.5 py-0.5 rounded">{m.clave}</span>
-                            <span className={tieneEvidencias ? "text-emerald-400 font-bold" : "text-slate-400"}>
-                              {tieneEvidencias ? `✓ ${m.total_evidencias}` : "Ver info"}
-                            </span>
+                        <div key={m.id} onClick={() => setMateriaFoco(isFoco ? null : m)} className={`${baseClass} ${colorClass}`}>
+                          {isFoco && <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-cyan-400"></div>}
+                          {isPrevia && <div className="absolute top-0 left-0 w-full h-1 bg-orange-500"></div>}
+                          {isSiguiente && <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></div>}
+                          
+                          <div className="font-bold text-[12px] text-center leading-tight mb-3 text-white/90 group-hover:text-white transition-colors">{m.nombre}</div>
+                          
+                          <div className="mt-auto flex justify-between items-center text-[10px] font-mono border-t border-white/10 pt-2">
+                            <span className="text-blue-300 bg-blue-950/80 px-1.5 py-0.5 rounded border border-blue-900/50">{m.clave}</span>
+                            {tieneEvidencias ? (
+                              <span className="text-emerald-400 font-bold bg-emerald-950/50 px-2 py-0.5 rounded-full border border-emerald-800/50">✓ {m.total_evidencias}</span>
+                            ) : (
+                              <span className="text-slate-500 font-bold">0</span>
+                            )}
                           </div>
                         </div>
                       );
@@ -467,143 +374,165 @@
                   </div>
                 ))}
               </div>
+
+              {/* Panel flotante cuando hay una materia enfocada */}
+              {materiaFoco && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 glass-panel px-8 py-5 rounded-2xl flex items-center gap-6 shadow-[0_10px_40px_rgba(0,0,0,0.5)] border-blue-500/30 animate-in slide-in-from-bottom-5 fade-in duration-300 z-50">
+                  <div>
+                    <h4 className="text-white font-bold text-lg">{materiaFoco.nombre}</h4>
+                    <p className="text-xs text-slate-400">Selecciona otra materia o presiona el botón para subir evidencia.</p>
+                  </div>
+                  <div className="flex gap-3 border-l border-white/10 pl-6">
+                    <button onClick={() => { setMateriaSeleccionada(materiaFoco.id); setVistaActual(usuarioActivo ? "subir" : "auth"); setMateriaFoco(null); }} className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-lg transition-all">
+                      {usuarioActivo ? "+ Subir Evidencia" : "Iniciar Sesión"}
+                    </button>
+                    <button onClick={() => setMateriaFoco(null)} className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all font-bold text-sm">✕</button>
+                  </div>
+                </div>
+              )}
             </section>
           )}
 
-          {/* 4. SUBIR EVIDENCIAS */}
+          {/* SUBIR EVIDENCIA */}
           {vistaActual === "subir" && (
-            <section className="max-w-3xl mx-auto px-6 py-10">
-              <div className="p-8 rounded-2xl bg-slate-900/90 backdrop-blur-md border border-slate-700 shadow-2xl">
-                <span className="px-3 py-1 rounded-full bg-blue-900/50 text-blue-300 border border-blue-500/50 text-xs font-bold uppercase tracking-wider">Analizador de Evidencias</span>
-                <h2 className="text-3xl font-extrabold text-white mt-4 mb-6">Subir Proyecto</h2>
+            <section className="max-w-2xl mx-auto px-6 py-12">
+              <div className="glass-panel p-8 rounded-3xl shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-emerald-500"></div>
+                <h2 className="text-3xl font-extrabold text-white mb-2">Subir Proyecto</h2>
+                <p className="text-sm text-slate-400 mb-8">La Inteligencia Artificial analizará tu código y documentos.</p>
                 
                 <form onSubmit={guardarEvidenciaConIA} className="space-y-5">
-                  {alerta && <div className={`p-4 rounded-xl border text-sm ${alerta.tipo === "ok" ? "bg-emerald-900/50 border-emerald-500/50 text-emerald-200" : "bg-red-900/50 border-red-500/50 text-red-200"}`}><div className="font-bold">{alerta.msg}</div></div>}
+                  {alerta && <div className={`p-4 rounded-xl border text-sm ${alerta.tipo === "ok" ? "bg-emerald-950/50 border-emerald-500/50 text-emerald-300" : "bg-red-950/50 border-red-500/50 text-red-300"}`}>{alerta.msg}</div>}
                   
                   <div>
-                    <label className="block text-xs font-bold text-blue-400 mb-1 uppercase tracking-wider">Materia *</label>
-                    <select value={materiaSeleccionada} onChange={(e) => setMateriaSeleccionada(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950/50 border border-slate-700 text-sm text-white focus:border-blue-500 focus:outline-none">
+                    <label className="block text-xs font-bold text-blue-400 mb-1.5 uppercase tracking-wider">Materia *</label>
+                    <select value={materiaSeleccionada} onChange={(e) => setMateriaSeleccionada(e.target.value)} className="w-full p-4 rounded-xl bg-slate-950/50 border border-slate-700 text-sm text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all outline-none appearance-none">
                       {(materias || []).map((m) => (<option key={m.id} value={m.id}>[{m.semestre}°] {m.clave} - {m.nombre}</option>))}
                     </select>
                   </div>
                   
-                  <div><label className="block text-xs font-bold text-blue-400 mb-1 uppercase tracking-wider">Título del Proyecto *</label><input type="text" required value={titulo} onChange={(e) => setTitulo(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950/50 border border-slate-700 text-sm text-white focus:border-blue-500 focus:outline-none" /></div>
-                  <div><label className="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider">Descripción (Opcional)</label><textarea rows="2" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} className="w-full p-3 rounded-xl bg-slate-950/50 border border-slate-700 text-sm text-white focus:border-blue-500 focus:outline-none" /></div>
+                  <div><label className="block text-xs font-bold text-blue-400 mb-1.5 uppercase tracking-wider">Título del Proyecto *</label><input type="text" required value={titulo} onChange={(e) => setTitulo(e.target.value)} className="w-full p-4 rounded-xl bg-slate-950/50 border border-slate-700 text-sm text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all outline-none" /></div>
+                  <div><label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Descripción (Opcional)</label><textarea rows="3" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} className="w-full p-4 rounded-xl bg-slate-950/50 border border-slate-700 text-sm text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all outline-none resize-none" /></div>
                   
-                  <div className="p-6 rounded-xl border-2 border-dashed border-blue-500/40 bg-blue-950/20 text-center hover:bg-blue-900/20 transition-all">
-                    <label className="block text-sm font-bold text-blue-300 mb-2 cursor-pointer">
-                      <span className="text-2xl mb-2 block">📁</span>
-                      Arrastra o haz clic para subir archivos
+                  <div className="p-8 rounded-2xl border-2 border-dashed border-slate-700 bg-slate-900/30 text-center hover:bg-slate-900/50 transition-all cursor-pointer group">
+                    <label className="cursor-pointer block">
+                      <span className="text-3xl mb-3 block group-hover:scale-110 transition-transform">📁</span>
+                      <span className="text-sm font-bold text-white mb-1 block">Haz clic para subir archivos</span>
+                      <span className="text-xs text-slate-500">PDF, ZIP, Excel, Código, Videos (Máx 50MB)</span>
+                      <input type="file" multiple onChange={(e) => setColaArchivos([...colaArchivos, ...Array.from(e.target.files)])} className="hidden" />
                     </label>
-                    <p className="text-xs text-slate-400 mb-4">PDF, ZIP, Excel, Código, Videos (Máx 50MB)</p>
-                    <input type="file" multiple onChange={(e) => setColaArchivos([...colaArchivos, ...Array.from(e.target.files)])} className="w-full text-xs text-slate-300 file:bg-blue-600 file:text-white file:border-0 file:px-4 file:py-2 file:rounded-lg file:cursor-pointer" />
-                    {colaArchivos.length > 0 && <div className="mt-4 pt-4 border-t border-blue-500/20 text-left space-y-2">{colaArchivos.map((f, i) => (<div key={i} className="flex justify-between items-center bg-slate-900/80 px-3 py-2 rounded-lg text-xs border border-slate-700"><span className="text-white truncate max-w-[80%]">📄 {f.name}</span><button type="button" onClick={() => setColaArchivos(colaArchivos.filter((_, idx) => idx !== i))} className="text-red-400 font-bold hover:text-red-300">✕</button></div>))}</div>}
+                    {colaArchivos.length > 0 && <div className="mt-6 text-left space-y-2">{colaArchivos.map((f, i) => (<div key={i} className="flex justify-between items-center bg-slate-900 px-4 py-2 rounded-lg text-xs border border-slate-700"><span className="text-white truncate max-w-[80%]">📄 {f.name}</span><button type="button" onClick={() => setColaArchivos(colaArchivos.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-300 font-bold">✕</button></div>))}</div>}
                   </div>
                   
-                  <button type="submit" disabled={subiendo} className="w-full py-4 rounded-xl bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 font-extrabold text-white text-sm uppercase tracking-wider shadow-lg transform transition hover:scale-[1.02]">
-                    {subiendo ? "Analizando con IA..." : `Guardar y Analizar (${colaArchivos.length} Archivos)`}
+                  <button type="submit" disabled={subiendo} className="w-full py-4 rounded-xl bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 font-extrabold text-white text-sm uppercase tracking-wider shadow-[0_0_20px_rgba(37,99,235,0.3)] transition-all transform hover:-translate-y-0.5 disabled:opacity-50">
+                    {subiendo ? "Analizando con IA..." : `Guardar y Analizar`}
                   </button>
                 </form>
               </div>
             </section>
           )}
 
-          {/* 5. PORTAFOLIO Y CURRÍCULUM */}
+          {/* PORTAFOLIO (CV) */}
           {vistaActual === "portafolio" && (
             <section className="max-w-7xl mx-auto px-6 py-10">
               {!datosPortafolio ? <div className="text-center text-slate-400 p-10 font-bold animate-pulse">Cargando tu portafolio...</div> : (
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                   <aside className="lg:col-span-4 space-y-6">
-                    <div className="p-6 rounded-2xl bg-slate-900/90 backdrop-blur-md border border-slate-700 shadow-2xl">
-                      <div className="flex items-center gap-4 pb-6 border-b border-slate-700">
-                        {datosPortafolio.estudiante?.foto_url ? <img src={`${API_BASE}${datosPortafolio.estudiante.foto_url}`} className="w-20 h-20 rounded-2xl object-cover border-2 border-emerald-400 shadow-lg" /> : <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-600 to-emerald-500 flex items-center justify-center text-2xl font-extrabold text-white shadow-lg">{(datosPortafolio.estudiante?.nombre || "U").slice(0, 2).toUpperCase()}</div>}
-                        <div>
-                          <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700 text-[10px] font-bold uppercase tracking-wider">✓ Verificado</span>
-                          <h2 className="text-xl font-extrabold text-white mt-1 leading-tight">{datosPortafolio.estudiante?.nombre}</h2>
-                        </div>
+                    <div className="glass-panel p-8 rounded-3xl shadow-xl">
+                      <div className="flex flex-col items-center text-center pb-6 border-b border-white/10">
+                        {datosPortafolio.estudiante?.foto_url ? <img src={`${API_BASE}${datosPortafolio.estudiante.foto_url}`} className="w-24 h-24 rounded-full object-cover border-4 border-slate-800 mb-4" /> : <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-600 to-emerald-500 flex items-center justify-center text-3xl font-extrabold text-white mb-4">{(datosPortafolio.estudiante?.nombre || "U").slice(0, 2).toUpperCase()}</div>}
+                        <h2 className="text-2xl font-extrabold text-white leading-tight">{datosPortafolio.estudiante?.nombre}</h2>
+                        <span className="mt-2 px-3 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800/50 text-[10px] font-bold uppercase tracking-wider">✓ Cuenta Verificada</span>
                       </div>
                       
-                      <div className="py-5 border-b border-slate-700">
-                        <div className="text-xs font-bold text-blue-400 mb-2 uppercase tracking-wider">Perfil Profesional IA</div>
+                      <div className="py-6 border-b border-white/10">
+                        <div className="text-xs font-bold text-blue-400 mb-3 uppercase tracking-wider">Perfil Profesional IA</div>
                         <p className="text-sm text-slate-300 leading-relaxed text-justify">{datosPortafolio.estudiante?.perfil_ia}</p>
                       </div>
                       
-                      <div className="py-5 border-b border-slate-700 space-y-3 text-sm">
-                        <div className="flex justify-between items-center"><span className="text-slate-400">Matrícula:</span><span className="font-mono font-bold text-white bg-slate-800 px-2 py-0.5 rounded">{datosPortafolio.estudiante?.matricula}</span></div>
+                      <div className="py-6 border-b border-white/10 space-y-3 text-sm">
+                        <div className="flex justify-between items-center"><span className="text-slate-400">Matrícula:</span><span className="font-mono font-bold text-white bg-slate-800 px-3 py-1 rounded-lg">{datosPortafolio.estudiante?.matricula}</span></div>
                         <div className="flex justify-between items-center"><span className="text-slate-400">Correo:</span><span className="font-mono text-emerald-400 text-xs">{datosPortafolio.estudiante?.correo}</span></div>
-                        <div className="flex justify-between items-center"><span className="text-slate-400">Semestre:</span><span className="font-extrabold text-white bg-blue-900/50 px-2 py-0.5 rounded border border-blue-700/50">{datosPortafolio.estudiante?.semestre_actual}°</span></div>
+                        <div className="flex justify-between items-center"><span className="text-slate-400">Semestre:</span><span className="font-extrabold text-white bg-blue-900/50 px-3 py-1 rounded-lg border border-blue-700/50">{datosPortafolio.estudiante?.semestre_actual}°</span></div>
                       </div>
                       
-                      <div className="py-5 border-b border-slate-700">
-                        <h3 className="text-xs font-bold text-emerald-400 mb-2 uppercase tracking-wider">Stack Detectado</h3>
-                        {(datosPortafolio.metricas?.stack_dominado || []).length > 0 ? <div className="flex flex-wrap gap-2">{(datosPortafolio.metricas.stack_dominado || []).map((t) => <span key={t} className="px-2.5 py-1 rounded-md bg-blue-950/80 text-blue-300 text-xs font-bold border border-blue-700/50 shadow-sm">✓ {t}</span>)}</div> : <p className="text-xs text-slate-500 italic">Sube archivos para que la IA detecte tus habilidades.</p>}
+                      <div className="py-6 border-b border-white/10">
+                        <h3 className="text-xs font-bold text-emerald-400 mb-3 uppercase tracking-wider">Stack Detectado</h3>
+                        {(datosPortafolio.metricas?.stack_dominado || []).length > 0 ? <div className="flex flex-wrap gap-2">{(datosPortafolio.metricas.stack_dominado || []).map((t) => <span key={t} className="px-3 py-1.5 rounded-lg bg-blue-950/80 text-blue-300 text-xs font-bold border border-blue-800/50 shadow-sm">✓ {t}</span>)}</div> : <p className="text-xs text-slate-500 italic">Sube archivos para que la IA detecte tus habilidades.</p>}
                       </div>
                       
-                      <div className="pt-5 space-y-3 print:hidden">
-                        <button onClick={() => window.print()} className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-sm shadow-lg shadow-blue-600/30 transition-all">🖨️ Imprimir CV</button>
-                        <button onClick={() => setVistaActual("subir")} className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-sm border border-slate-600 transition-all">+ Subir Evidencia</button>
+                      <div className="pt-6 space-y-3 print:hidden">
+                        <button onClick={() => window.print()} className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm shadow-lg transition-all border border-slate-600">🖨️ Imprimir CV</button>
+                        <button onClick={() => setVistaActual("subir")} className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-lg transition-all">+ Subir Evidencia</button>
                       </div>
                     </div>
                   </aside>
                   
                   <div className="lg:col-span-8 space-y-6">
-                    <div className="p-6 rounded-2xl bg-slate-900/80 backdrop-blur-md border border-slate-700 flex justify-between items-center shadow-lg">
+                    <div className="glass-panel p-6 rounded-2xl flex justify-between items-center shadow-lg">
                       <h3 className="text-xl font-extrabold text-white">Historial Académico</h3>
-                      <select value={semestreActivoHistorial} onChange={(e) => setSemestreActivoHistorial(e.target.value)} className="p-2.5 rounded-lg bg-slate-950 border border-slate-700 text-xs font-bold text-white focus:outline-none">
+                      <select value={semestreActivoHistorial} onChange={(e) => setSemestreActivoHistorial(e.target.value)} className="p-3 rounded-xl bg-slate-950 border border-slate-700 text-xs font-bold text-white focus:outline-none focus:border-blue-500">
                         <option value="TODOS">Todos los semestres</option>
                         {[1,2,3,4,5,6,7,8,9].map(s => <option key={s} value={s}>{s}° Semestre</option>)}
                       </select>
                     </div>
                     
-                    <div className="relative border-l-2 border-blue-500/30 ml-4 pl-8 space-y-8">
-                      {construirHistorialPorSemestre().map((b) => (
-                        <div key={b.semestre} className="relative">
-                          <div className={`absolute -left-[41px] top-1 w-5 h-5 rounded-full border-4 border-slate-950 ${b.totalEvidenciasSemestre > 0 ? "bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.8)]" : "bg-slate-600"}`} />
-                          
-                          <div className="p-4 rounded-xl bg-slate-800/80 border border-slate-600 flex justify-between mb-4 shadow-sm">
-                            <span className="font-extrabold text-white">{b.semestre}° Semestre</span>
-                            <span className="text-xs text-emerald-400 font-bold bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-800/50">{b.totalEvidenciasSemestre} proyecto(s)</span>
-                          </div>
-                          
-                          <div className="space-y-4">
-                            {b.materias.map((mat) => (
-                              <div key={mat.id} className={`p-5 rounded-xl border transition-all ${mat.evidencias.length > 0 ? "bg-slate-900/90 border-emerald-500/50 shadow-lg shadow-emerald-900/20" : "bg-slate-900/40 border-slate-700"}`}>
-                                <div className="flex justify-between items-center">
-                                  <div>
-                                    <span className="font-mono text-xs text-blue-400 font-bold mr-2 bg-blue-950/50 px-2 py-0.5 rounded border border-blue-800/50">{mat.clave}</span>
-                                    <span className="font-bold text-white text-base">{mat.nombre}</span>
-                                  </div>
-                                  <button onClick={() => { setMateriaSeleccionada(mat.id); setVistaActual("subir"); }} className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-blue-300 border border-slate-600 transition-all">+ Subir</button>
-                                </div>
-                                {mat.evidencias.length > 0 && (
-                                  <div className="mt-4 pt-4 border-t border-slate-700 space-y-4">
-                                    {mat.evidencias.map((ev) => (
-                                      <div key={ev.id} className="p-4 rounded-xl bg-slate-950/80 border border-slate-800">
-                                        <div className="flex justify-between items-start mb-2">
-                                          <h5 className="font-bold text-white text-sm">{ev.titulo}</h5>
-                                          <span className="text-[10px] text-slate-500 font-mono bg-slate-900 px-2 py-0.5 rounded">{ev.fecha}</span>
-                                        </div>
-                                        {ev.analisis_ia && <p className="text-xs text-emerald-200 mt-2 bg-emerald-950/30 p-3 rounded-lg border border-emerald-800/40 leading-relaxed">{ev.analisis_ia}</p>}
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-4">
-                                          {(ev.archivos || []).map((arch) => (
-                                            <div key={arch.id} className="p-2.5 rounded-lg bg-slate-900 border border-slate-700 flex justify-between items-center text-xs">
-                                              <span className="truncate text-slate-300 mr-2">📎 {arch.nombre}</span>
-                                              <div className="flex gap-1 shrink-0">
-                                                <button onClick={() => previsualizarArchivo(arch)} className="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white font-bold transition-all">Abrir</button>
-                                                <a href={`${API_BASE}${arch.url}`} download={arch.nombre} className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-white font-bold border border-slate-600 transition-all">↓</a>
-                                              </div>
-                                            </div>
-                                          ))}
-                                        </div>
+                    <div className="relative border-l border-slate-700 ml-6 pl-8 space-y-8">
+                      {/* Lógica de historial igual que antes pero con mejores estilos */}
+                      {[1,2,3,4,5,6,7,8,9].filter(s => semestreActivoHistorial === "TODOS" || s === Number(semestreActivoHistorial)).map((numSem) => {
+                        const materiasDelSemestre = (materias || []).filter((m) => m.semestre === numSem);
+                        const evidenciasPorMateria = {};
+                        (datosPortafolio.portafolio_por_materia || []).forEach(b => evidenciasPorMateria[b.clave] = b.evidencias);
+                        const totalSem = materiasDelSemestre.reduce((acc, m) => acc + (evidenciasPorMateria[m.clave]?.length || 0), 0);
+                        
+                        if (totalSem === 0 && semestreActivoHistorial === "TODOS") return null; // Ocultar vacíos si es "TODOS"
+
+                        return (
+                          <div key={numSem} className="relative">
+                            <div className={`absolute -left-[37px] top-1 w-4 h-4 rounded-full border-4 border-slate-950 ${totalSem > 0 ? "bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.8)]" : "bg-slate-600"}`} />
+                            <h4 className="text-lg font-bold text-white mb-4">{numSem}° Semestre <span className="text-xs text-emerald-400 bg-emerald-950/50 px-2 py-1 rounded ml-2">{totalSem} proyectos</span></h4>
+                            
+                            <div className="space-y-4">
+                              {materiasDelSemestre.map(mat => {
+                                const evs = evidenciasPorMateria[mat.clave] || [];
+                                if (evs.length === 0) return null;
+                                return (
+                                  <div key={mat.id} className="glass-panel p-5 rounded-2xl border-l-4 border-l-blue-500 shadow-md">
+                                    <div className="flex justify-between items-center mb-4">
+                                      <div>
+                                        <span className="font-mono text-xs text-blue-400 bg-blue-950/50 px-2 py-1 rounded border border-blue-800/50 mr-2">{mat.clave}</span>
+                                        <span className="font-bold text-white text-sm">{mat.nombre}</span>
                                       </div>
-                                    ))}
+                                    </div>
+                                    <div className="space-y-4">
+                                      {evs.map(ev => (
+                                        <div key={ev.id} className="bg-slate-900/50 p-4 rounded-xl border border-white/5">
+                                          <div className="flex justify-between items-start mb-2">
+                                            <h5 className="font-bold text-white text-sm">{ev.titulo}</h5>
+                                            <span className="text-[10px] text-slate-500 font-mono bg-slate-950 px-2 py-1 rounded">{ev.fecha}</span>
+                                          </div>
+                                          {ev.analisis_ia && <p className="text-xs text-emerald-200 mt-2 bg-emerald-950/20 p-3 rounded-lg border border-emerald-900/30 leading-relaxed">{ev.analisis_ia}</p>}
+                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
+                                            {(ev.archivos || []).map(arch => (
+                                              <div key={arch.id} className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 flex justify-between items-center text-xs">
+                                                <span className="truncate text-slate-300 mr-2">📎 {arch.nombre}</span>
+                                                <div className="flex gap-1 shrink-0">
+                                                  <button onClick={() => {setArchivoEnVisor(arch); setTextoCodigoVisor("");}} className="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white font-bold transition-all">Abrir</button>
+                                                  <a href={`${API_BASE}${arch.url}`} download={arch.nombre} className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-white font-bold border border-slate-600 transition-all">↓</a>
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
                                   </div>
-                                )}
-                              </div>
-                            ))}
+                                );
+                              })}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -611,82 +540,24 @@
             </section>
           )}
 
-          {/* MODAL DE INFORMACIÓN DE MATERIA (RETÍCULA) */}
-          {materiaModal && (
-            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-              <div className="bg-slate-900 border border-slate-600 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative">
-                <button onClick={() => setMateriaModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white bg-slate-800 rounded-full w-8 h-8 flex items-center justify-center">✕</button>
-                
-                <h3 className="text-xl font-extrabold text-white mb-1 pr-8">{materiaModal.nombre}</h3>
-                <div className="flex gap-2 mb-6">
-                  <span className="text-xs font-mono bg-blue-950 text-blue-300 px-2 py-1 rounded border border-blue-800">{materiaModal.clave}</span>
-                  <span className="text-xs font-bold bg-slate-800 text-slate-300 px-2 py-1 rounded">{materiaModal.semestre}° Semestre</span>
-                </div>
-
-                <div className="space-y-6">
-                  {/* Materias Previas */}
-                  <div>
-                    <h4 className="text-sm font-bold text-amber-400 mb-2 flex items-center gap-2">
-                      <span className="text-lg">⬅️</span> Materias Previas (Requisitos)
-                    </h4>
-                    <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 min-h-[60px]">
-                      {RETICULA_DEPENDENCIAS[materiaModal.clave]?.previas.length > 0 ? (
-                        <ul className="list-disc list-inside text-sm text-slate-300 space-y-1">
-                          {RETICULA_DEPENDENCIAS[materiaModal.clave].previas.map(clave => (
-                            <li key={clave}>{obtenerNombreMateria(clave)} <span className="text-xs text-slate-500 font-mono">({clave})</span></li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-xs text-slate-500 italic">No tiene materias previas registradas (Materia de inicio).</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Materias Siguientes */}
-                  <div>
-                    <h4 className="text-sm font-bold text-emerald-400 mb-2 flex items-center gap-2">
-                      <span className="text-lg">➡️</span> Desbloquea las materias:
-                    </h4>
-                    <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 min-h-[60px]">
-                      {RETICULA_DEPENDENCIAS[materiaModal.clave]?.siguientes.length > 0 ? (
-                        <ul className="list-disc list-inside text-sm text-slate-300 space-y-1">
-                          {RETICULA_DEPENDENCIAS[materiaModal.clave].siguientes.map(clave => (
-                            <li key={clave}>{obtenerNombreMateria(clave)} <span className="text-xs text-slate-500 font-mono">({clave})</span></li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-xs text-slate-500 italic">No desbloquea materias posteriores en la retícula.</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-8 flex justify-end">
-                  <button onClick={() => { setMateriaSeleccionada(materiaModal.id); setVistaActual(usuarioActivo ? "subir" : "auth"); setMateriaModal(null); }} className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 font-bold text-white text-sm shadow-lg shadow-blue-600/30 transition-all">
-                    {usuarioActivo ? "+ Subir Evidencia aquí" : "Iniciar Sesión para subir"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* VISOR DE ARCHIVOS */}
           {archivoEnVisor && (
-            <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 z-50">
-              <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-6xl w-full p-6 shadow-2xl">
-                <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-4">
+            <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+              <div className="glass-panel rounded-3xl max-w-5xl w-full p-6 shadow-2xl flex flex-col max-h-[90vh]">
+                <div className="flex justify-between items-center mb-4 border-b border-white/10 pb-4">
                   <h4 className="font-bold text-white text-lg flex items-center gap-2"><span className="text-2xl">📎</span> {archivoEnVisor.nombre}</h4>
-                  <button onClick={() => setArchivoEnVisor(null)} className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition-all">Cerrar ✕</button>
+                  <button onClick={() => setArchivoEnVisor(null)} className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-red-600 text-white text-xs font-bold transition-all">Cerrar ✕</button>
                 </div>
-                <div className="flex justify-center items-center min-h-[60vh] bg-slate-950 rounded-xl overflow-hidden">
+                <div className="flex justify-center items-center flex-1 bg-slate-950 rounded-xl overflow-hidden border border-slate-800">
                   {archivoEnVisor.tipo === "IMAGEN" ? <img src={`${API_BASE}${archivoEnVisor.url}`} className="max-h-[70vh] object-contain" /> 
-                  : archivoEnVisor.tipo === "VIDEO" || archivoEnVisor.nombre?.toLowerCase().endsWith(".mp4") ? <video controls autoPlay className="max-h-[70vh] w-full"><source src={`${API_BASE}${archivoEnVisor.url}`} /></video> 
-                  : textoCodigoVisor ? <pre className="w-full bg-slate-900 text-emerald-300 p-6 rounded-xl text-sm font-mono overflow-auto max-h-[70vh]">{textoCodigoVisor}</pre> 
+                  : archivoEnVisor.tipo === "VIDEO" ? <video controls autoPlay className="max-h-[70vh] w-full"><source src={`${API_BASE}${archivoEnVisor.url}`} /></video> 
+                  : textoCodigoVisor ? <pre className="w-full h-full p-6 text-emerald-300 text-sm font-mono overflow-auto">{textoCodigoVisor}</pre> 
                   : <iframe src={`${API_BASE}${archivoEnVisor.url}`} className="w-full h-[70vh] bg-white" />}
                 </div>
               </div>
             </div>
           )}
+
         </div>
       );
     }
