@@ -51,7 +51,7 @@ def preparar_reticula():
 
 preparar_reticula()
 
-app = FastAPI(title="Portafolio Académico ITP - Plataforma Oficial", version="12.0.0")
+app = FastAPI(title="Syntax Alpha - Portafolio ITP", version="12.0.0")
 
 # INICIALIZACIÓN DEL CLIENTE GEMINI
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
@@ -78,6 +78,19 @@ def servir_frontend():
     if os.path.exists("index.html"):
         return FileResponse("index.html", headers={"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"})
     return {"mensaje": "Servidor activo"}
+
+# --- RUTAS PARA SERVIR EL LOGO Y EL FONDO ---
+@app.get("/logo.png")
+def servir_logo():
+    if os.path.exists("logo.png"):
+        return FileResponse("logo.png")
+    return {"error": "Logo no encontrado"}
+
+@app.get("/fondo.png")
+def servir_fondo():
+    if os.path.exists("fondo.png"):
+        return FileResponse("fondo.png")
+    return {"error": "Fondo no encontrado"}
 
 # --- SEGURIDAD CRIPTOGRÁFICA ---
 def hashear_secreto(texto: str) -> str:
