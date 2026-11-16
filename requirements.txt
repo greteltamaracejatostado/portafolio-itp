@@ -6,3 +6,4 @@ pypdf
 google-genai
 dnspython
 resend
+openpyxl

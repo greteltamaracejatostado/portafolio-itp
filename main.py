@@ -369,10 +369,11 @@ def confirmar_nueva_password(correo: str = Form(...), codigo: str = Form(...), n
     db.commit()
     return {"mensaje": "Contraseña actualizada. Ya puedes iniciar sesión."}
 
-# --- FUNCIÓN PARA EXTRAER TEXTO (LA QUE FALTABA) ---
+# --- FUNCIÓN PARA EXTRAER TEXTO (MEJORADA PARA EXCEL Y ZIP) ---
 def extraer_texto_de_archivo(nombre: str, contenido: bytes) -> str:
     ext = os.path.splitext(nombre)[1].lower()
     texto_extraido = f"Archivo: {nombre} ({ext}). "
+    
     if ext == ".pdf":
         try:
             from pypdf import PdfReader
@@ -381,6 +382,17 @@ def extraer_texto_de_archivo(nombre: str, contenido: bytes) -> str:
             texto_extraido += " ".join(paginas_texto)
         except Exception:
             pass
+    elif ext in [".xlsx", ".xls"]:
+        try:
+            import openpyxl
+            wb = openpyxl.load_workbook(io.BytesIO(contenido), data_only=True)
+            for sheet in wb.worksheets:
+                texto_extraido += f"\nHoja: {sheet.title}\n"
+                for row in sheet.iter_rows(values_only=True):
+                    fila_str = " | ".join([str(cell) for cell in row if cell is not None])
+                    if fila_str: texto_extraido += fila_str + "\n"
+        except Exception as e:
+            print(f"Error leyendo Excel: {e}")
     elif ext == ".zip":
         try:
             with zipfile.ZipFile(io.BytesIO(contenido)) as z:
@@ -394,6 +406,7 @@ def extraer_texto_de_archivo(nombre: str, contenido: bytes) -> str:
             pass
     elif ext in [".py", ".kt", ".java", ".sql", ".js", ".jsx", ".ts", ".html", ".css", ".pl", ".txt", ".md", ".json", ".csv"]:
         texto_extraido += contenido.decode("utf-8", errors="ignore")[:5000]
+    
     return texto_extraido
 
 # --- MOTOR DE ANÁLISIS IA CON GEMINI ---
@@ -406,10 +419,10 @@ async def analizar_evidencia_con_ia(titulo: str, descripcion: str, materia_nombr
     {corpus_completo}
     
     Tu tarea es:
-    1. Detectar las tecnologías y habilidades técnicas demostradas (ej. Python, SQL, Redes, etc.).
+    1. Detectar las tecnologías y habilidades técnicas demostradas (ej. Python, SQL, Excel, Redes, etc.).
     2. Redactar un resumen profesional y atractivo para un CV, en tercera persona, destacando el logro y las tecnologías usadas.
     
-    Devuelve la respuesta ESTRICTAMENTE en formato JSON con las claves "tecnologias" (una lista de strings) y "resumen_cv" (un string).
+    Devuelve la respuesta ESTRICTAMENTE en formato JSON con las claves "tecnologias" (una lista de strings) y "resumen_cv" (un string). No agregues formato markdown, solo el JSON puro.
     """
     
     try:
@@ -421,7 +434,17 @@ async def analizar_evidencia_con_ia(titulo: str, descripcion: str, materia_nombr
             )
         )
         
-        resultado = json.loads(response.text)
+        # Limpiamos la respuesta por si Gemini le pone ```json al inicio/final
+        texto_limpio = response.text.strip()
+        if texto_limpio.startswith("```json"):
+            texto_limpio = texto_limpio[7:]
+        if texto_limpio.startswith("```"):
+            texto_limpio = texto_limpio[3:]
+        if texto_limpio.endswith("```"):
+            texto_limpio = texto_limpio[:-3]
+        texto_limpio = texto_limpio.strip()
+
+        resultado = json.loads(texto_limpio)
         
         tecnologias = resultado.get("tecnologias", [f"Competencia en {materia_nombre}"])
         resumen = resultado.get("resumen_cv", f"El estudiante desarrolló '{titulo}' aplicando conocimientos de {materia_nombre}.")
@@ -429,10 +452,10 @@ async def analizar_evidencia_con_ia(titulo: str, descripcion: str, materia_nombr
         return {"tecnologias": tecnologias, "resumen_cv": resumen}
         
     except Exception as e:
-        print(f"Error al llamar a Gemini: {e}")
+        print(f"❌ ERROR REAL DE GEMINI: {e}") # Esto saldrá en los logs de Render
         return {
-            "tecnologias": [f"Competencia en {materia_nombre}"],
-            "resumen_cv": f"El estudiante desarrolló '{titulo}' en la asignatura {materia_nombre}."
+            "tecnologias": ["⚠️ IA no disponible"],
+            "resumen_cv": f"El estudiante desarrolló '{titulo}', pero la IA no pudo analizarlo en este momento."
         }
 
 def clasificar_extension(filename: str) -> TipoEvidencia:
