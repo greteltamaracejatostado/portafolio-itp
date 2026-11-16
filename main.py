@@ -119,7 +119,7 @@ def verificar_correo_con_google_dns(correo: str) -> dict:
     except Exception:
         return {"valido": True, "mensaje": "Formato de correo válido."}
 
-# --- ENVÍO DE CORREO DE VERIFICACIÓN CON API DE BREVO (PRODUCCIÓN REAL) ---
+# --- ENVÍO DE CORREO DE VERIFICACIÓN CON API DE BREVO ---
 def enviar_correo_verificacion(destinatario: str, nombre: str, codigo_otp: str, proposito: str) -> dict:
     api_key = os.getenv("BREVO_API_KEY")
     if not api_key:
@@ -369,6 +369,33 @@ def confirmar_nueva_password(correo: str = Form(...), codigo: str = Form(...), n
     db.commit()
     return {"mensaje": "Contraseña actualizada. Ya puedes iniciar sesión."}
 
+# --- FUNCIÓN PARA EXTRAER TEXTO (LA QUE FALTABA) ---
+def extraer_texto_de_archivo(nombre: str, contenido: bytes) -> str:
+    ext = os.path.splitext(nombre)[1].lower()
+    texto_extraido = f"Archivo: {nombre} ({ext}). "
+    if ext == ".pdf":
+        try:
+            from pypdf import PdfReader
+            lector = PdfReader(io.BytesIO(contenido))
+            paginas_texto = [page.extract_text() or "" for page in lector.pages[:10]]
+            texto_extraido += " ".join(paginas_texto)
+        except Exception:
+            pass
+    elif ext == ".zip":
+        try:
+            with zipfile.ZipFile(io.BytesIO(contenido)) as z:
+                lista_interna = z.namelist()
+                texto_extraido += "Contiene: " + ", ".join(lista_interna[:50])
+                for item in lista_interna[:8]:
+                    if item.endswith((".py", ".kt", ".java", ".sql", ".html", ".js", ".md", ".txt", ".pl")):
+                        muestra = z.read(item).decode("utf-8", errors="ignore")[:1000]
+                        texto_extraido += f"\nCódigo en {item}: {muestra}"
+        except Exception:
+            pass
+    elif ext in [".py", ".kt", ".java", ".sql", ".js", ".jsx", ".ts", ".html", ".css", ".pl", ".txt", ".md", ".json", ".csv"]:
+        texto_extraido += contenido.decode("utf-8", errors="ignore")[:5000]
+    return texto_extraido
+
 # --- MOTOR DE ANÁLISIS IA CON GEMINI ---
 async def analizar_evidencia_con_ia(titulo: str, descripcion: str, materia_nombre: str, textos_archivos: List[str], url_externa: str = "") -> dict:
     corpus_completo = f"Materia: {materia_nombre}. Título: {titulo}. Descripción: {descripcion}. URL: {url_externa}. " + "\n".join(textos_archivos)
@@ -387,7 +414,7 @@ async def analizar_evidencia_con_ia(titulo: str, descripcion: str, materia_nombr
     
     try:
         response = await client.aio.models.generate_content(
-            model="gemini-1.5-flash", # <--- MODELO ACTUALIZADO AQUÍ
+            model="gemini-1.5-flash", 
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json", 
