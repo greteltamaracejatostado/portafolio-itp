@@ -17,7 +17,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, PlainTextResponse
 from sqlalchemy.orm import Session
 
-# IMPORTACIONES DE GEMINI
+# IMPORTACIONES DE SQLALCHEMY Y GEMINI
+from sqlalchemy.pool import NullPool
 from google import genai
 from google.genai import types
 
@@ -31,7 +32,12 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./portafolio_seguro_itp.db")
 UPLOAD_DIR = "./storage_evidencias"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {})
+# CREACIÓN DEL ENGINE CON NULLPOOL (Necesario para el Session Pooler de Supabase)
+if "sqlite" in DATABASE_URL:
+    engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+else:
+    engine = create_engine(DATABASE_URL, poolclass=NullPool)
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base.metadata.create_all(bind=engine)
 
@@ -427,14 +433,13 @@ async def analizar_evidencia_con_ia(titulo: str, descripcion: str, materia_nombr
     
     try:
         response = await client.aio.models.generate_content(
-            model="gemini-3.5-flash", # <--- MODELO ACTUALIZADO
+            model="gemini-3.5-flash", 
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json", 
             )
         )
         
-        # Limpiamos la respuesta por si Gemini le pone ```json al inicio/final
         texto_limpio = response.text.strip()
         if texto_limpio.startswith("```json"):
             texto_limpio = texto_limpio[7:]
@@ -452,7 +457,7 @@ async def analizar_evidencia_con_ia(titulo: str, descripcion: str, materia_nombr
         return {"tecnologias": tecnologias, "resumen_cv": resumen}
         
     except Exception as e:
-        print(f"❌ ERROR REAL DE GEMINI: {e}") # Esto saldrá en los logs de Render
+        print(f"❌ ERROR REAL DE GEMINI: {e}") 
         return {
             "tecnologias": ["⚠️ IA no disponible"],
             "resumen_cv": f"El estudiante desarrolló '{titulo}', pero la IA no pudo analizarlo en este momento."
