@@ -17,6 +17,10 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, PlainTextResponse
 from sqlalchemy.orm import Session
 
+# IMPORTACIONES DE GEMINI
+from google import genai
+from google.genai import types
+
 from models import (
     Base, Carrera, Materia, Competencia, Usuario, Evidencia, ArchivoEvidencia,
     AuditoriaEvidencia, RolUsuario, TipoEvidencia, EstadoEvidencia,
@@ -42,6 +46,9 @@ def preparar_reticula():
 preparar_reticula()
 
 app = FastAPI(title="Portafolio Académico ITP - Plataforma Oficial", version="12.0.0")
+
+# INICIALIZACIÓN DEL CLIENTE GEMINI
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 app.add_middleware(
     CORSMiddleware,
@@ -137,7 +144,6 @@ def enviar_correo_verificacion(destinatario: str, nombre: str, codigo_otp: str, 
     </div>
     """
 
-    # Configuración de la petición HTTP directa a Brevo (Sin librerías externas)
     url = "https://api.brevo.com/v3/smtp/email"
     data = {
         "sender": {"name": "Portafolio Académico ITP", "email": "reticulasproyectos@gmail.com"},
@@ -363,72 +369,44 @@ def confirmar_nueva_password(correo: str = Form(...), codigo: str = Form(...), n
     db.commit()
     return {"mensaje": "Contraseña actualizada. Ya puedes iniciar sesión."}
 
-# --- MOTOR DE ANÁLISIS IA DE EVIDENCIAS Y PORTAFOLIO ---
-DICCIONARIO_TECNOLOGIAS = {
-    "Python": [r"\bpython\b", r"\.py\b", r"\bfastapi\b", r"\bflask\b", r"\bdjango\b", r"\bpandas\b"],
-    "SQL / Bases de Datos": [r"\bsql\b", r"\bpostgres", r"\bmysql\b", r"\bsqlite\b", r"\bsupabase\b", r"entidad-relaci", r"\bselect\b", r"\bcreate table\b"],
-    "Kotlin / Android": [r"\bkotlin\b", r"\.kt\b", r"\bandroid studio\b", r"\bapk\b", r"\bgradle\b"],
-    "Java": [r"\bjava\b", r"\.java\b", r"\bpoo\b", r"\bspring\b"],
-    "Desarrollo Web (HTML/CSS/JS)": [r"\bhtml\b", r"\bcss\b", r"\bjavascript\b", r"\breact\b", r"\btailwind\b", r"\bfrontend\b"],
-    "Redes y Telecomunicaciones": [r"\bcisco\b", r"\bpacket tracer\b", r"\.pkt\b", r"\bvlan\b", r"\brouter\b", r"\bswitch\b", r"\bwireshark\b", r"\bip\b"],
-    "Ciberseguridad / Linux": [r"\bkali\b", r"\blinux\b", r"\bbash\b", r"\bdocker\b", r"\bseguridad\b", r"\bauditor", r"\bhash\b", r"\bsha-?256\b"],
-    "Ingeniería del Conocimiento / IA": [r"\bcommonkads\b", r"\bprolog\b", r"\.pl\b", r"\bontolog", r"\bconocimiento\b", r"\bagentes\b", r"\bgemini\b", r"\bmachine learning\b"],
-    "Ingeniería de Software / UML": [r"\buml\b", r"\bcasos de uso\b", r"\brequerimientos\b", r"\bscrum\b", r"\barquitectura\b"],
-    "Excel VBA / Análisis de Datos": [r"\bvba\b", r"\bexcel\b", r"\.xlsm\b", r"\.xlsx\b", r"\buserform\b", r"\bestadística\b"],
-    "Modelado 3D / CAD": [r"\bblender\b", r"\bcatia\b", r"\b3dexperience\b", r"\bcad\b"],
-    "Git / Control de Versiones": [r"\bgithub\b", r"\bgitlab\b", r"\bgit\b"],
-    "Producción Multimedia / Video": [r"\.mp4\b", r"\.webm\b", r"\.mov\b", r"\bvideo\b"]
-}
-
-def extraer_texto_de_archivo(nombre: str, contenido: bytes) -> str:
-    ext = os.path.splitext(nombre)[1].lower()
-    texto_extraido = f"Archivo: {nombre} ({ext}). "
-    if ext == ".pdf":
-        try:
-            from pypdf import PdfReader
-            lector = PdfReader(io.BytesIO(contenido))
-            paginas_texto = [page.extract_text() or "" for page in lector.pages[:10]]
-            texto_extraido += " ".join(paginas_texto)
-        except Exception:
-            pass
-    elif ext == ".zip":
-        try:
-            with zipfile.ZipFile(io.BytesIO(contenido)) as z:
-                lista_interna = z.namelist()
-                texto_extraido += "Contiene: " + ", ".join(lista_interna[:50])
-                for item in lista_interna[:8]:
-                    if item.endswith((".py", ".kt", ".java", ".sql", ".html", ".js", ".md", ".txt", ".pl")):
-                        muestra = z.read(item).decode("utf-8", errors="ignore")[:1000]
-                        texto_extraido += f"\nCódigo en {item}: {muestra}"
-        except Exception:
-            pass
-    elif ext in [".py", ".kt", ".java", ".sql", ".js", ".jsx", ".ts", ".html", ".css", ".pl", ".txt", ".md", ".json", ".csv"]:
-        texto_extraido += contenido.decode("utf-8", errors="ignore")[:5000]
-    return texto_extraido
-
-def analizar_evidencia_con_ia(titulo: str, descripcion: str, materia_nombre: str, textos_archivos: List[str], url_externa: str = "") -> dict:
+# --- MOTOR DE ANÁLISIS IA CON GEMINI ---
+async def analizar_evidencia_con_ia(titulo: str, descripcion: str, materia_nombre: str, textos_archivos: List[str], url_externa: str = "") -> dict:
     corpus_completo = f"Materia: {materia_nombre}. Título: {titulo}. Descripción: {descripcion}. URL: {url_externa}. " + "\n".join(textos_archivos)
-    tecnologias_detectadas = []
-    corpus_lower = corpus_completo.lower()
-    for tech, patrones in DICCIONARIO_TECNOLOGIAS.items():
-        for pat in patrones:
-            if re.search(pat, corpus_lower, re.IGNORECASE):
-                tecnologias_detectadas.append(tech)
-                break
-    if "base de datos" in materia_nombre.lower() or "sql" in materia_nombre.lower():
-        if "SQL / Bases de Datos" not in tecnologias_detectadas: tecnologias_detectadas.append("SQL / Bases de Datos")
-    elif "redes" in materia_nombre.lower() or "telecomunicaciones" in materia_nombre.lower() or "inalámbricas" in materia_nombre.lower():
-        if "Redes y Telecomunicaciones" not in tecnologias_detectadas: tecnologias_detectadas.append("Redes y Telecomunicaciones")
-    elif "móviles" in materia_nombre.lower():
-        if "Kotlin / Android" not in tecnologias_detectadas: tecnologias_detectadas.append("Kotlin / Android")
-    elif "web" in materia_nombre.lower():
-        if "Desarrollo Web (HTML/CSS/JS)" not in tecnologias_detectadas: tecnologias_detectadas.append("Desarrollo Web (HTML/CSS/JS)")
-    elif "conocimiento" in materia_nombre.lower():
-        if "Ingeniería del Conocimiento / IA" not in tecnologias_detectadas: tecnologias_detectadas.append("Ingeniería del Conocimiento / IA")
-    if not tecnologias_detectadas:
-        tecnologias_detectadas.append(f"Competencia en {materia_nombre}")
-    resumen_generado = f"Análisis IA de Evidencia: En la asignatura '{materia_nombre}', el estudiante desarrolló '{titulo}', demostrando dominio práctico en {', '.join(tecnologias_detectadas[:5])} mediante archivos verificados."
-    return {"tecnologias": tecnologias_detectadas, "resumen_cv": resumen_generado}
+    
+    prompt = f"""
+    Eres un asistente experto en reclutamiento técnico. Analiza la siguiente evidencia de un estudiante de Ingeniería en TICs:
+    
+    {corpus_completo}
+    
+    Tu tarea es:
+    1. Detectar las tecnologías y habilidades técnicas demostradas (ej. Python, SQL, Redes, etc.).
+    2. Redactar un resumen profesional y atractivo para un CV, en tercera persona, destacando el logro y las tecnologías usadas.
+    
+    Devuelve la respuesta ESTRICTAMENTE en formato JSON con las claves "tecnologias" (una lista de strings) y "resumen_cv" (un string).
+    """
+    
+    try:
+        response = await client.aio.models.generate_content(
+            model="gemini-2.0-flash", 
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json", 
+            )
+        )
+        
+        resultado = json.loads(response.text)
+        
+        tecnologias = resultado.get("tecnologias", [f"Competencia en {materia_nombre}"])
+        resumen = resultado.get("resumen_cv", f"El estudiante desarrolló '{titulo}' aplicando conocimientos de {materia_nombre}.")
+        
+        return {"tecnologias": tecnologias, "resumen_cv": resumen}
+        
+    except Exception as e:
+        print(f"Error al llamar a Gemini: {e}")
+        return {
+            "tecnologias": [f"Competencia en {materia_nombre}"],
+            "resumen_cv": f"El estudiante desarrolló '{titulo}' en la asignatura {materia_nombre}."
+        }
 
 def clasificar_extension(filename: str) -> TipoEvidencia:
     ext = os.path.splitext(filename)[1].lower()
@@ -457,8 +435,22 @@ def listar_materias(estudiante_id: Optional[int] = None, db: Session = Depends(g
 async def subir_evidencia(estudiante_id: int = Form(...), titulo: str = Form(...), descripcion: str = Form(""), materia_id: int = Form(...), url_enlace_externo: Optional[str] = Form(None), archivos: List[UploadFile] = File(default=[]), db: Session = Depends(get_db)):
     usuario = db.query(Usuario).filter(Usuario.id == estudiante_id, Usuario.cuenta_verificada == True).first()
     if not usuario: raise HTTPException(status_code=403, detail="Tu cuenta debe estar verificada para subir archivos.")
+    
     materia = db.query(Materia).filter(Materia.id == materia_id).first()
+    if not materia:
+        raise HTTPException(status_code=404, detail="La materia seleccionada no existe.")
+
+    # FIX ERROR 1: Crear competencia si no existe
     competencia = db.query(Competencia).filter(Competencia.materia_id == materia.id).first()
+    if not competencia:
+        competencia = Competencia(
+            materia_id=materia.id,
+            numero_unidad=1,
+            descripcion=f"Competencia general de {materia.nombre}"
+        )
+        db.add(competencia)
+        db.flush() # Genera el ID temporal
+
     archivos_validos = [a for a in archivos if a.filename]
     if not archivos_validos and not url_enlace_externo: raise HTTPException(status_code=400, detail="Adjunta al menos un archivo o enlace.")
 
@@ -486,7 +478,8 @@ async def subir_evidencia(estudiante_id: int = Form(...), titulo: str = Form(...
         registro_archivo = ArchivoEvidencia(evidencia_id=nueva_evidencia.id, nombre_original=nombre_limpio, ruta_servidor=ruta_url, mime_type=mime_detectado, tipo_archivo=tipo_arch, tamano_bytes=tamano, sha256_hash=hash_sha256, resumen_extraido_ia=texto_interno[:300])
         db.add(registro_archivo)
 
-    resultado_ia = analizar_evidencia_con_ia(titulo, descripcion, materia.nombre, textos_para_ia, url_enlace_externo or "")
+    # FIX ERROR 2: Llamada con await a Gemini
+    resultado_ia = await analizar_evidencia_con_ia(titulo, descripcion, materia.nombre, textos_para_ia, url_enlace_externo or "")
     nueva_evidencia.tags_ia_detectados = ", ".join(resultado_ia["tecnologias"])
     nueva_evidencia.analisis_ia = resultado_ia["resumen_cv"]
     db.commit()
