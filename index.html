@@ -22,7 +22,6 @@
     }
   </script>
   <style>
-    /* Scrollbar personalizado para que se vea elegante */
     ::-webkit-scrollbar { width: 8px; height: 8px; }
     ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); }
     ::-webkit-scrollbar-thumb { background: rgba(59, 130, 246, 0.5); border-radius: 4px; }
@@ -33,11 +32,14 @@
       backdrop-filter: blur(12px);
       border: 1px solid rgba(255, 255, 255, 0.08);
     }
+    
+    .reticula-box {
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans antialiased">
   
-  <!-- Fondo tecnológico -->
   <div className="fixed inset-0 bg-[url('fondo.png')] bg-cover bg-center opacity-10 pointer-events-none z-0 mix-blend-screen"></div>
   <div className="fixed inset-0 bg-gradient-to-br from-slate-950 via-slate-900/90 to-blue-950/40 pointer-events-none z-0"></div>
 
@@ -47,24 +49,60 @@
     const { useState, useEffect, useRef } = React;
     const API_BASE = window.location.origin.includes("http") ? window.location.origin : "http://localhost:8000";
 
-    // Diccionario de dependencias
+    // MAPEO COMPLETO DE DEPENDENCIAS BASADO EN LA RETÍCULA ITIC-2010-225
     const RETICULA_DEPENDENCIAS = {
-      "ACF-2301": { previas: [], siguientes: ["ACF-0902", "TIE-1018"] },
-      "AEF-1032": { previas: [], siguientes: ["AEB-1054", "TID-1012"] },
-      "TIF-1019": { previas: [], siguientes: ["TIF-1020"] },
-      "TIP-1017": { previas: [], siguientes: ["TIF-1013"] },
-      "ACF-0902": { previas: ["ACF-2301"], siguientes: ["TIF-1021"] },
-      "AEB-1054": { previas: ["AEF-1032"], siguientes: ["AEF-1031"] },
-      "TIF-1020": { previas: ["TIF-1019"], siguientes: ["TIF-1018"] },
-      "ACF-0903": { previas: [], siguientes: ["TIE-1018"] },
-      "TIF-1009": { previas: [], siguientes: ["TIF-1021"] },
-      "AEF-1052": { previas: [], siguientes: ["TIF-1021"] },
-      "TIE-1018": { previas: ["ACF-2301", "ACF-0903"], siguientes: ["TID-1004"] },
-      "TID-1012": { previas: ["AEF-1032"], siguientes: ["AEF-1031"] },
-      "TIF-1021": { previas: ["ACF-0902", "TIF-1009", "AEF-1052"], siguientes: [] },
-      "TIC-1011": { previas: [], siguientes: ["TIF-1013"] },
-      "TIF-1013": { previas: ["TIP-1017", "TIC-1011"], siguientes: ["TIC-1002"] },
-      "AEF-1031": { previas: ["AEB-1054", "TID-1012"], siguientes: ["TIF-1004"] },
+      // 1er Semestre
+      "ACF-2301": { previas: [], siguientes: ["ACF-0902", "TIE-1018"] }, // Cálculo Diferencial
+      "AEF-1032": { previas: [], siguientes: ["AEB-1054", "TID-1012"] }, // Fund. Programación
+      "TIF-1019": { previas: [], siguientes: ["TIF-1020"] }, // Mat. Discretas I
+      "TIP-1017": { previas: [], siguientes: ["TIF-1013"] }, // Intro TICs
+      "ACH-2307": { previas: [], siguientes: [] }, // Taller Ética
+      "ACC-0906": { previas: [], siguientes: [] }, // Fund. Investigación
+
+      // 2do Semestre
+      "ACF-0902": { previas: ["ACF-2301"], siguientes: ["TIF-1021"] }, // Cálculo Integral
+      "AEB-1054": { previas: ["AEF-1032"], siguientes: ["AEF-1031"] }, // POO
+      "TIF-1020": { previas: ["TIF-1019"], siguientes: ["TIF-1018"] }, // Mat. Discretas II
+      "ACF-0903": { previas: [], siguientes: ["TIE-1018"] }, // Álgebra Lineal
+      "TIF-1009": { previas: [], siguientes: ["TIF-1021"] }, // Contabilidad
+      "AEF-1052": { previas: [], siguientes: ["TIF-1021"] }, // Probabilidad
+
+      // 3er Semestre
+      "TIE-1018": { previas: ["ACF-2301", "ACF-0903"], siguientes: ["TID-1004"] }, // Mat. Aplicadas
+      "TID-1012": { previas: ["AEF-1032"], siguientes: ["AEF-1031", "AEC-1061"] }, // Estructuras Datos
+      "TIF-1021": { previas: ["ACF-0902", "TIF-1009", "AEF-1052"], siguientes: [] }, // Toma Decisiones
+      "ACD-0908": { previas: [], siguientes: [] }, // Desarrollo Sustentable
+      "TIC-1011": { previas: [], siguientes: ["TIF-1013"] }, // Electricidad
+      "TIF-1013": { previas: ["TIP-1017", "TIC-1011"], siguientes: ["TIC-1002"] }, // Fund. Redes
+
+      // 4to Semestre
+      "TID-1004": { previas: ["TIE-1018"], siguientes: ["TIF-1029"] }, // Análisis Señales
+      "AEF-1031": { previas: ["AEB-1054", "TID-1012"], siguientes: ["AEH-1063"] }, // Fund. Base Datos
+      "AEC-1061": { previas: ["TID-1012"], siguientes: ["AED-1062"] }, // Sist. Operativos I
+      "TIF-1004": { previas: [], siguientes: ["TIF-1007"] }, // (Redes/Sistemas)
+
+      // 5to Semestre
+      "TIF-1029": { previas: ["TID-1004"], siguientes: [] }, // Telecomunicaciones
+      "AEH-1063": { previas: ["AEF-1031"], siguientes: ["TIF-1007"] }, // Taller Base Datos
+      "AED-1062": { previas: ["AEC-1061"], siguientes: [] }, // Sist. Operativos II
+      "TIB-1024": { previas: [], siguientes: ["AEB-1055"] }, // Programación II
+
+      // 6to Semestre
+      "TIF-1007": { previas: ["AEH-1063"], siguientes: [] }, // B.D. Distribuidas
+      "TIC-1028": { previas: [], siguientes: ["TIC-1022"] }, // (Electrónica)
+      "AEB-1055": { previas: ["TIB-1024"], siguientes: [] }, // Prog. Web
+
+      // 7mo Semestre
+      "TIC-1022": { previas: ["TIC-1028"], siguientes: ["TIC-1023"] }, // Negocios Elec I
+      "ACA-0909": { previas: [], siguientes: ["ACA-0910"] }, // Taller Inv I
+
+      // 8vo Semestre
+      "TIC-1023": { previas: ["TIC-1022"], siguientes: [] }, // Negocios Elec II
+      "ACA-0910": { previas: ["ACA-0909"], siguientes: [] }, // Taller Inv II
+
+      // 9no Semestre (Especialidad / Optativas)
+      "ADM-2501": { previas: [], siguientes: ["ADM-2502"] }, 
+      "ADM-2502": { previas: ["ADM-2501"], siguientes: ["ADM-2503"] }, 
     };
 
     function PortafolioITPApp() {
@@ -126,12 +164,6 @@
       };
 
       useEffect(() => { cargarDatosUsuario(); }, [usuarioActivo]);
-
-      const cambiarDigitoOTP = (index, valor) => {
-        const soloNumero = valor.replace(/[^0-9]/g, "").slice(-1);
-        const nuevos = [...digitosOTP]; nuevos[index] = soloNumero; setDigitosOTP(nuevos);
-        if (soloNumero && index < 5 && inputsRef.current[index + 1]) inputsRef.current[index + 1].focus();
-      };
 
       const manejarRegistro = async (e) => {
         e.preventDefault(); setErrorAuth(null); setProcesandoAuth(true);
@@ -196,11 +228,6 @@
           } else { setAlerta({ tipo: "error", msg: data.detail || "Error al subir." }); }
         } catch { setAlerta({ tipo: "error", msg: "Error de conexión." }); } 
         setSubiendo(false);
-      };
-
-      const obtenerNombreMateria = (clave) => {
-        const m = materias.find(mat => mat.clave === clave);
-        return m ? m.nombre : clave;
       };
 
       return (
@@ -313,9 +340,9 @@
                   <p className="text-sm text-slate-400 mt-1">Haz clic en una materia para visualizar su ruta de dependencias.</p>
                 </div>
                 <div className="flex gap-4 text-xs font-bold bg-slate-950/50 px-4 py-2 rounded-xl border border-slate-800">
-                  <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-orange-500"></div> Requisito</div>
-                  <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-500"></div> Seleccionada</div>
-                  <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500"></div> Desbloquea</div>
+                  <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]"></div> Requisito</div>
+                  <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]"></div> Seleccionada</div>
+                  <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"></div> Desbloquea</div>
                 </div>
               </div>
               
@@ -326,37 +353,38 @@
                     
                     {(materias || []).filter((m) => m.semestre === sem).map((m) => {
                       const tieneEvidencias = m.total_evidencias > 0;
-                      const deps = RETICULA_DEPENDENCIAS[m.clave] || { previas: [], siguientes: [] };
                       
-                      // Lógica de resaltado
-                      let isFoco = materiaFoco?.id === m.id;
-                      let isPrevia = materiaFoco && deps.siguientes.includes(materiaFoco.clave); // Si la materia acutal es requisito de la enfocada
-                      let isSiguiente = materiaFoco && RETICULA_DEPENDENCIAS[materiaFoco.clave]?.previas.includes(m.clave); // Si la materia actual es consecuente de la enfocada
-                      let isAtenuada = materiaFoco && !isFoco && !isPrevia && !isSiguiente;
+                      // Lógica de resaltado visual
+                      const depsFoco = materiaFoco ? (RETICULA_DEPENDENCIAS[materiaFoco.clave] || { previas: [], siguientes: [] }) : { previas: [], siguientes: [] };
+                      const isFoco = materiaFoco?.id === m.id;
+                      const isPrevia = materiaFoco && depsFoco.previas.includes(m.clave);
+                      const isSiguiente = materiaFoco && depsFoco.siguientes.includes(m.clave);
+                      const isAtenuada = materiaFoco && !isFoco && !isPrevia && !isSiguiente;
 
-                      // Clases dinámicas
-                      let baseClass = "relative p-4 rounded-xl cursor-pointer transition-all duration-300 flex flex-col justify-between min-h-[140px] border backdrop-blur-sm overflow-hidden group";
+                      // Clases base y dinámicas
+                      let baseClass = "relative p-4 rounded-xl cursor-pointer flex flex-col justify-between min-h-[140px] border overflow-hidden reticula-box group";
                       let colorClass = "";
                       
                       if (isFoco) {
-                        colorClass = "bg-blue-900/60 border-blue-400 shadow-[0_0_25px_rgba(59,130,246,0.5)] scale-[1.03] z-20 ring-2 ring-blue-400";
+                        colorClass = "bg-blue-900/80 border-blue-400 shadow-[0_0_30px_rgba(59,130,246,0.6)] scale-[1.05] z-30 ring-2 ring-blue-400";
                       } else if (isPrevia) {
-                        colorClass = "bg-orange-950/60 border-orange-500 shadow-[0_0_20px_rgba(249,115,22,0.3)] scale-[1.02] z-10";
+                        colorClass = "bg-orange-950/80 border-orange-500 shadow-[0_0_20px_rgba(249,115,22,0.4)] scale-[1.02] z-20";
                       } else if (isSiguiente) {
-                        colorClass = "bg-emerald-950/60 border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)] scale-[1.02] z-10";
+                        colorClass = "bg-emerald-950/80 border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.4)] scale-[1.02] z-20";
                       } else if (isAtenuada) {
-                        colorClass = "bg-slate-900/20 border-slate-800 opacity-30 grayscale";
+                        colorClass = "bg-slate-900/20 border-slate-800/50 opacity-20 grayscale scale-95 blur-[1px]";
                       } else if (tieneEvidencias) {
-                        colorClass = "bg-slate-800/80 border-emerald-500/40 hover:border-emerald-400 hover:bg-slate-800 shadow-lg";
+                        colorClass = "bg-slate-800/80 border-emerald-500/40 hover:border-emerald-400 hover:bg-slate-800 hover:-translate-y-1 shadow-lg";
                       } else {
                         colorClass = "bg-slate-800/50 border-slate-700 hover:border-blue-500/50 hover:bg-slate-800 hover:-translate-y-1 shadow-lg";
                       }
 
                       return (
                         <div key={m.id} onClick={() => setMateriaFoco(isFoco ? null : m)} className={`${baseClass} ${colorClass}`}>
-                          {isFoco && <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-cyan-400"></div>}
-                          {isPrevia && <div className="absolute top-0 left-0 w-full h-1 bg-orange-500"></div>}
-                          {isSiguiente && <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></div>}
+                          {/* Línea superior de color según estado */}
+                          {isFoco && <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-400 to-cyan-400"></div>}
+                          {isPrevia && <div className="absolute top-0 left-0 w-full h-1.5 bg-orange-500"></div>}
+                          {isSiguiente && <div className="absolute top-0 left-0 w-full h-1.5 bg-emerald-500"></div>}
                           
                           <div className="font-bold text-[12px] text-center leading-tight mb-3 text-white/90 group-hover:text-white transition-colors">{m.nombre}</div>
                           
@@ -380,10 +408,10 @@
                 <div className="fixed bottom-6 left-1/2 -translate-x-1/2 glass-panel px-8 py-5 rounded-2xl flex items-center gap-6 shadow-[0_10px_40px_rgba(0,0,0,0.5)] border-blue-500/30 animate-in slide-in-from-bottom-5 fade-in duration-300 z-50">
                   <div>
                     <h4 className="text-white font-bold text-lg">{materiaFoco.nombre}</h4>
-                    <p className="text-xs text-slate-400">Selecciona otra materia o presiona el botón para subir evidencia.</p>
+                    <p className="text-xs text-slate-400">Presiona el botón para subir evidencia de esta materia.</p>
                   </div>
                   <div className="flex gap-3 border-l border-white/10 pl-6">
-                    <button onClick={() => { setMateriaSeleccionada(materiaFoco.id); setVistaActual(usuarioActivo ? "subir" : "auth"); setMateriaFoco(null); }} className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-lg transition-all">
+                    <button onClick={() => { setMateriaSeleccionada(materiaFoco.id); setVistaActual(usuarioActivo ? "subir" : "auth"); setMateriaFoco(null); }} className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-lg transition-all transform hover:scale-105">
                       {usuarioActivo ? "+ Subir Evidencia" : "Iniciar Sesión"}
                     </button>
                     <button onClick={() => setMateriaFoco(null)} className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all font-bold text-sm">✕</button>
@@ -478,14 +506,13 @@
                     </div>
                     
                     <div className="relative border-l border-slate-700 ml-6 pl-8 space-y-8">
-                      {/* Lógica de historial igual que antes pero con mejores estilos */}
                       {[1,2,3,4,5,6,7,8,9].filter(s => semestreActivoHistorial === "TODOS" || s === Number(semestreActivoHistorial)).map((numSem) => {
                         const materiasDelSemestre = (materias || []).filter((m) => m.semestre === numSem);
                         const evidenciasPorMateria = {};
                         (datosPortafolio.portafolio_por_materia || []).forEach(b => evidenciasPorMateria[b.clave] = b.evidencias);
                         const totalSem = materiasDelSemestre.reduce((acc, m) => acc + (evidenciasPorMateria[m.clave]?.length || 0), 0);
                         
-                        if (totalSem === 0 && semestreActivoHistorial === "TODOS") return null; // Ocultar vacíos si es "TODOS"
+                        if (totalSem === 0 && semestreActivoHistorial === "TODOS") return null;
 
                         return (
                           <div key={numSem} className="relative">
