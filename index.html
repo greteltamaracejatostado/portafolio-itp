@@ -38,7 +38,7 @@
     }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 font-sans antialiased">
+<body class="bg-slate-950 text-slate-100 font-sans antialiased" onClick={() => setMateriaFoco(null)}>
   
   <div className="fixed inset-0 bg-[url('fondo.png')] bg-cover bg-center opacity-10 pointer-events-none z-0 mix-blend-screen"></div>
   <div className="fixed inset-0 bg-gradient-to-br from-slate-950 via-slate-900/90 to-blue-950/40 pointer-events-none z-0"></div>
@@ -49,72 +49,86 @@
     const { useState, useEffect, useRef } = React;
     const API_BASE = window.location.origin.includes("http") ? window.location.origin : "http://localhost:8000";
 
-    // MAPA COMPLETO CON LOS CÓDIGOS EXACTOS DE TU SISTEMA Y EL PDF
+    // MAPA COMPLETO USANDO EL NOMBRE EXACTO DE LA MATERIA COMO LLAVE
     const RETICULA_DEPENDENCIAS = {
       // 1er Semestre
-      "ACF-2301": { previas: [], siguientes: ["ACF-0902"] },
-      "AEF-1032": { previas: [], siguientes: ["AEB-1054"] },
-      "TIF-1019": { previas: [], siguientes: ["TIF-1020"] },
-      "TIP-1017": { previas: [], siguientes: ["TIF-1013"] },
-      "ACH-2307": { previas: [], siguientes: [] },
-      "ACC-0906": { previas: [], siguientes: [] },
+      "Cálculo Diferencial": { previas: [], siguientes: ["Cálculo Integral", "Matemáticas Aplicadas a Comunicaciones"] },
+      "Fundamentos de Programación": { previas: [], siguientes: ["Programación Orientada a Objetos"] },
+      "Matemáticas Discretas I": { previas: [], siguientes: ["Matemáticas Discretas II"] },
+      "Introducción a las TICs": { previas: [], siguientes: ["Fundamentos de Redes"] },
+      "Taller de Ética": { previas: [], siguientes: [] },
+      "Fundamentos de Investigación": { previas: [], siguientes: [] },
 
       // 2do Semestre
-      "ACF-0902": { previas: ["ACF-2301"], siguientes: ["TIE-1018"] },
-      "AEB-1054": { previas: ["AEF-1032"], siguientes: ["TID-1012"] },
-      "TIF-1020": { previas: ["TIF-1019"], siguientes: ["TIF-1021"] },
-      "ACF-0903": { previas: [], siguientes: ["TIE-1018"] },
-      "TIF-1009": { previas: [], siguientes: ["TIF-1021"] },
-      "AEF-1052": { previas: [], siguientes: ["TIF-1021"] },
+      "Cálculo Integral": { previas: ["Cálculo Diferencial"], siguientes: ["Matemáticas para la Toma de Decisiones"] },
+      "Programación Orientada a Objetos": { previas: ["Fundamentos de Programación"], siguientes: ["Estructura y Organización de Datos"] },
+      "Matemáticas Discretas II": { previas: ["Matemáticas Discretas I"], siguientes: ["Matemáticas Aplicadas a Comunicaciones"] },
+      "Álgebra Lineal": { previas: [], siguientes: ["Matemáticas Aplicadas a Comunicaciones"] },
+      "Contabilidad y Costos": { previas: [], siguientes: ["Matemáticas para la Toma de Decisiones"] },
+      "Probabilidad y Estadística": { previas: [], siguientes: ["Matemáticas para la Toma de Decisiones"] },
 
       // 3er Semestre
-      "TIE-1018": { previas: ["ACF-0902", "ACF-0903"], siguientes: ["TID-1004"] },
-      "TID-1012": { previas: ["AEB-1054"], siguientes: ["AEF-1031"] },
-      "TIF-1021": { previas: ["TIF-1020", "TIF-1009", "AEF-1052"], siguientes: [] },
-      "ACD-0908": { previas: [], siguientes: [] },
-      "TIC-1011": { previas: [], siguientes: ["TID-1008"] },
-      "TIF-1013": { previas: ["TIP-1017"], siguientes: ["TID-1012"] },
+      "Matemáticas Aplicadas a Comunicaciones": { previas: ["Cálculo Diferencial", "Matemáticas Discretas II", "Álgebra Lineal"], siguientes: ["Análisis de Señales y Sistemas de Comunicación"] },
+      "Estructura y Organización de Datos": { previas: ["Programación Orientada a Objetos"], siguientes: ["Fundamentos de Bases de Datos"] },
+      "Matemáticas para la Toma de Decisiones": { previas: ["Cálculo Integral", "Contabilidad y Costos", "Probabilidad y Estadística"], siguientes: ["Ingeniería del Conocimiento"] },
+      "Desarrollo Sustentable": { previas: [], siguientes: [] },
+      "Electricidad y Magnetismo": { previas: [], siguientes: ["Fundamentos de Redes"] },
+      "Fundamentos de Redes": { previas: ["Introducción a las TICs", "Electricidad y Magnetismo"], siguientes: ["Redes de Computadoras"] },
 
       // 4to Semestre
-      "TID-1004": { previas: ["TIE-1018"], siguientes: ["TIF-1029"] },
-      "AEF-1031": { previas: ["TID-1012"], siguientes: ["AEH-1063"] },
-      "AEC-1061": { previas: [], siguientes: ["AED-1062"] },
-      "TID-1010": { previas: [], siguientes: [] },
-      "TID-1008": { previas: ["TIC-1011"], siguientes: ["TIC-1014"] },
-      "TID-1012": { previas: ["TIF-1013"], siguientes: ["TIC-1024"] }, // Redes Comp
+      "Análisis de Señales y Sistemas de Comunicación": { previas: ["Matemáticas Aplicadas a Comunicaciones"], siguientes: ["Telecomunicaciones"] },
+      "Fundamentos de Bases de Datos": { previas: ["Estructura y Organización de Datos"], siguientes: ["Taller de Bases de Datos"] },
+      "Sistemas Operativos I": { previas: [], siguientes: ["Sistemas Operativos II"] },
+      "Desarrollo de Emprendedores": { previas: [], siguientes: ["Negocios Electrónicos I"] },
+      "Circuitos Eléctricos y Electrónicos": { previas: [], siguientes: ["Arquitectura de Computadoras"] },
+      "Redes de Computadoras": { previas: ["Fundamentos de Redes"], siguientes: ["Redes Emergentes"] },
 
       // 5to Semestre
-      "TIF-1029": { previas: ["TID-1004"], siguientes: ["TIC-1028"] },
-      "AEH-1063": { previas: ["AEF-1031"], siguientes: ["TIF-1007"] },
-      "AED-1062": { previas: ["AEC-1061"], siguientes: [] },
-      "TIC-1014": { previas: ["TID-1008"], siguientes: ["TIH-1016"] },
-      "TIB-1024": { previas: [], siguientes: ["AEB-1055"] },
-      "TIC-1024": { previas: ["TID-1012"], siguientes: ["TIC-1023"] },
+      "Telecomunicaciones": { previas: ["Análisis de Señales y Sistemas de Comunicación"], siguientes: ["Tecnologías Inalámbricas"] },
+      "Taller de Bases de Datos": { previas: ["Fundamentos de Bases de Datos"], siguientes: ["Base de Datos Distribuidas"] },
+      "Sistemas Operativos II": { previas: ["Sistemas Operativos I"], siguientes: ["Administración y Seguridad de Redes"] },
+      "Arquitectura de Computadoras": { previas: ["Circuitos Eléctricos y Electrónicos"], siguientes: ["Interacción Humano Computadora"] },
+      "Programación II": { previas: [], siguientes: ["Programación Web"] },
 
       // 6to Semestre
-      "TIC-1028": { previas: ["TIF-1029"], siguientes: [] },
-      "TIF-1007": { previas: ["AEH-1063"], siguientes: [] },
-      "TIH-1016": { previas: ["TIC-1014"], siguientes: ["TIC-1016"] },
-      "TIC-1016": { previas: ["TIH-1016"], siguientes: ["TIF-1028"] },
-      "TIF-1028": { previas: ["TIC-1016"], siguientes: [] },
-      "TIC-1022": { previas: [], siguientes: ["TIC-1023"] },
-      "TIC-1023": { previas: ["TIC-1022", "TIC-1024"], siguientes: [] },
-      "ACA-0909": { previas: [], siguientes: ["ACA-0910"] },
-      "ACA-0910": { previas: ["ACA-0909"], siguientes: [] },
+      "Tecnologías Inalámbricas": { previas: ["Telecomunicaciones"], siguientes: [] },
+      "Base de Datos Distribuidas": { previas: ["Taller de Bases de Datos"], siguientes: [] },
+      "Interacción Humano Computadora": { previas: ["Arquitectura de Computadoras"], siguientes: ["Ingeniería del Conocimiento"] },
+      "Ingeniería de Software": { previas: ["Interacción Humano Computadora"], siguientes: ["Taller de Ingeniería de Software"] },
+      "Taller de Ingeniería de Software": { previas: ["Ingeniería de Software"], siguientes: ["Administración de Proyectos"] },
+      "Negocios Electrónicos I": { previas: ["Desarrollo de Emprendedores"], siguientes: ["Negocios Electrónicos II"] },
+      "Taller de Investigación I": { previas: [], siguientes: ["Taller de Investigación II"] },
 
-      // Especialidad (8vo y 9no) - Incluyendo AOR-2204
-      "AZA-2301": { previas: [], siguientes: ["ADD-2302"] },
-      "ADD-2302": { previas: ["AZA-2301"], siguientes: ["AZA-2303"] },
-      "AZA-2303": { previas: ["ADD-2302"], siguientes: ["ADD-2304"] },
-      "ADD-2304": { previas: ["AZA-2303"], siguientes: ["ADB-2305"] },
-      "ADB-2305": { previas: ["ADD-2304"], siguientes: [] },
-      "ICV-2201": { previas: [], siguientes: ["ICV-2203"] },
-      "ICV-2202": { previas: [], siguientes: ["AOR-2204", "ICB-2204"] },
-      "ICV-2203": { previas: ["ICV-2201"], siguientes: ["ICV-2205"] },
-      "AOR-2204": { previas: ["ICV-2202"], siguientes: ["IOT-2206"] }, // Ciberseguridad
-      "ICB-2204": { previas: ["ICV-2202"], siguientes: ["IOT-2206"] }, // Alias
-      "ICV-2205": { previas: ["ICV-2203"], siguientes: ["IOT-2206"] },
-      "IOT-2206": { previas: ["ICV-2205", "AOR-2204", "ICB-2204"], siguientes: [] }
+      // 7mo Semestre
+      "Administración y Seguridad de Redes": { previas: ["Sistemas Operativos II"], siguientes: [] },
+      "Redes Emergentes": { previas: ["Redes de Computadoras"], siguientes: [] },
+      "Programación Web": { previas: ["Programación II"], siguientes: ["Desarrollo de Aplicaciones para Dispositivos Móviles"] },
+      "Ingeniería del Conocimiento": { previas: ["Matemáticas para la Toma de Decisiones", "Interacción Humano Computadora"], siguientes: [] },
+      "Administración Gerencial": { previas: [], siguientes: ["Administración de Proyectos"] },
+      "Taller de Investigación II": { previas: ["Taller de Investigación I"], siguientes: [] },
+      "Administración de Proyectos": { previas: ["Taller de Ingeniería de Software", "Administración Gerencial"], siguientes: [] },
+      "Negocios Electrónicos II": { previas: ["Negocios Electrónicos I"], siguientes: [] },
+
+      // 8vo Semestre (Especialidad)
+      "Almacenes de Datos": { previas: [], siguientes: ["Minería de Datos"] },
+      "Sistemas Web con Servicios": { previas: [], siguientes: ["Fundamentos de Internet de las cosas"] },
+      "Cubos OLAP para inteligencia empresarial": { previas: [], siguientes: ["Ciberseguridad"] },
+      "Minería de Datos": { previas: ["Almacenes de Datos"], siguientes: ["Aprendizaje Máquina"] },
+      "Fundamentos de Internet de las cosas": { previas: ["Sistemas Web con Servicios"], siguientes: ["Programación de Aplicaciones para Ambientes Inteligentes"] },
+      "Ciberseguridad": { previas: ["Cubos OLAP para inteligencia empresarial"], siguientes: ["Internet de las cosas Avanzado"] },
+      "Aprendizaje Máquina": { previas: ["Minería de Datos"], siguientes: ["Big Data"] },
+      "Programación de Aplicaciones para Ambientes Inteligentes": { previas: ["Fundamentos de Internet de las cosas"], siguientes: ["Internet de las cosas Avanzado"] },
+      "Auditoría en Tecnologías de Información": { previas: [], siguientes: [] },
+
+      // 9no Semestre
+      "Big Data": { previas: ["Aprendizaje Máquina"], siguientes: ["Cómputo en la Nube"] },
+      "Internet de las cosas Avanzado": { previas: ["Ciberseguridad", "Programación de Aplicaciones para Ambientes Inteligentes"], siguientes: [] },
+      "Cómputo en la Nube": { previas: ["Big Data"], siguientes: [] },
+      "Desarrollo de Aplicaciones para Dispositivos Móviles": { previas: ["Programación Web"], siguientes: [] },
+
+      // Extras
+      "Servicio Social": { previas: [], siguientes: [] },
+      "Residencia Profesional": { previas: [], siguientes: [] }
     };
 
     function PortafolioITPApp() {
@@ -371,11 +385,11 @@
                     {(materias || []).filter((m) => m.semestre === sem).map((m) => {
                       const tieneEvidencias = m.total_evidencias > 0;
                       
-                      // Lógica de resaltado visual
-                      const depsFoco = materiaFoco ? (RETICULA_DEPENDENCIAS[materiaFoco.clave] || { previas: [], siguientes: [] }) : { previas: [], siguientes: [] };
+                      // Evaluamos por NOMBRE, no por clave
+                      const depsFoco = materiaFoco ? (RETICULA_DEPENDENCIAS[materiaFoco.nombre] || { previas: [], siguientes: [] }) : { previas: [], siguientes: [] };
                       const isFoco = materiaFoco?.id === m.id;
-                      const isPrevia = materiaFoco && depsFoco.previas.includes(m.clave);
-                      const isSiguiente = materiaFoco && depsFoco.siguientes.includes(m.clave);
+                      const isPrevia = materiaFoco && depsFoco.previas.includes(m.nombre);
+                      const isSiguiente = materiaFoco && depsFoco.siguientes.includes(m.nombre);
                       const isAtenuada = materiaFoco && !isFoco && !isPrevia && !isSiguiente;
 
                       // Clases base y dinámicas
