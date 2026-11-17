@@ -49,6 +49,9 @@
     const { useState, useEffect, useRef } = React;
     const API_BASE = window.location.origin.includes("http") ? window.location.origin : "http://localhost:8000";
 
+    // Materias que NO deben aparecer en la cuadrícula de 9 semestres
+    const MATERIAS_OCULTAS = ["Servicio Social", "Residencia Profesional", "Actividades Complementarias"];
+
     // MAPA COMPLETO USANDO EL NOMBRE EXACTO DE LA MATERIA COMO LLAVE
     const RETICULA_DEPENDENCIAS = {
       // 1er Semestre
@@ -124,11 +127,7 @@
       "Big Data": { previas: ["Aprendizaje Máquina"], siguientes: ["Cómputo en la Nube"] },
       "Internet de las cosas Avanzado": { previas: ["Ciberseguridad", "Programación de Aplicaciones para Ambientes Inteligentes"], siguientes: [] },
       "Cómputo en la Nube": { previas: ["Big Data"], siguientes: [] },
-      "Desarrollo de Aplicaciones para Dispositivos Móviles": { previas: ["Programación Web"], siguientes: [] },
-
-      // Extras
-      "Servicio Social": { previas: [], siguientes: [] },
-      "Residencia Profesional": { previas: [], siguientes: [] }
+      "Desarrollo de Aplicaciones para Dispositivos Móviles": { previas: ["Programación Web"], siguientes: [] }
     };
 
     function PortafolioITPApp() {
@@ -382,7 +381,9 @@
                   <div key={sem} className="flex flex-col gap-4 min-w-[180px]">
                     <div className="bg-gradient-to-r from-blue-900/50 to-slate-900/50 border border-blue-500/30 text-blue-200 text-center py-3 rounded-xl font-bold text-sm shadow-[0_0_15px_rgba(59,130,246,0.1)] sticky top-20 z-10 backdrop-blur-md">{sem}° Semestre</div>
                     
-                    {(materias || []).filter((m) => m.semestre === sem).map((m) => {
+                    {(materias || [])
+                      .filter((m) => m.semestre === sem && !MATERIAS_OCULTAS.includes(m.nombre)) // <-- FILTRO PARA QUITAR RESIDENCIA, ETC.
+                      .map((m) => {
                       const tieneEvidencias = m.total_evidencias > 0;
                       
                       // Evaluamos por NOMBRE, no por clave
@@ -455,7 +456,9 @@
                   <div>
                     <label className="block text-xs font-bold text-blue-400 mb-1.5 uppercase tracking-wider">Materia *</label>
                     <select value={materiaSeleccionada} onChange={(e) => setMateriaSeleccionada(e.target.value)} className="w-full p-4 rounded-xl bg-slate-950/50 border border-slate-700 text-sm text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all outline-none appearance-none">
-                      {(materias || []).map((m) => (<option key={m.id} value={m.id}>[{m.semestre}°] {m.clave} - {m.nombre}</option>))}
+                      {(materias || [])
+                        .filter(m => !MATERIAS_OCULTAS.includes(m.nombre)) // <-- TAMBIÉN SE OCULTAN AQUÍ
+                        .map((m) => (<option key={m.id} value={m.id}>[{m.semestre}°] {m.clave} - {m.nombre}</option>))}
                     </select>
                   </div>
                   
