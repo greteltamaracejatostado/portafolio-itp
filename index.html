@@ -49,71 +49,72 @@
     const { useState, useEffect, useRef } = React;
     const API_BASE = window.location.origin.includes("http") ? window.location.origin : "http://localhost:8000";
 
-    // MAPA COMPLETO Y CORREGIDO BASADO EN EL PDF OFICIAL Y TEXT FILE
+    // MAPA COMPLETO CON LOS CÓDIGOS EXACTOS DE TU SISTEMA Y EL PDF
     const RETICULA_DEPENDENCIAS = {
       // 1er Semestre
-      "ACF-2301": { previas: [], siguientes: ["ACF-0902", "TIE-1018"] }, // Cálculo Diferencial
-      "AEF-1032": { previas: [], siguientes: ["AEB-1054"] }, // Fund. Programación
-      "TIF-1019": { previas: [], siguientes: ["TIF-1020"] }, // Mat. Discretas I
-      "TIP-1017": { previas: [], siguientes: ["TIF-1013"] }, // Intro TICs
-      "ACH-2307": { previas: [], siguientes: [] }, // Taller Ética
-      "ACC-0906": { previas: [], siguientes: [] }, // Fund. Investigación
+      "ACF-2301": { previas: [], siguientes: ["ACF-0902"] },
+      "AEF-1032": { previas: [], siguientes: ["AEB-1054"] },
+      "TIF-1019": { previas: [], siguientes: ["TIF-1020"] },
+      "TIP-1017": { previas: [], siguientes: ["TIF-1013"] },
+      "ACH-2307": { previas: [], siguientes: [] },
+      "ACC-0906": { previas: [], siguientes: [] },
 
       // 2do Semestre
-      "ACF-0902": { previas: ["ACF-2301"], siguientes: ["TIF-1021"] }, // Cálculo Integral
-      "AEB-1054": { previas: ["AEF-1032"], siguientes: ["TID-1012"] }, // POO
-      "TIF-1020": { previas: ["TIF-1019"], siguientes: ["TIF-1021"] }, // Mat. Discretas II
-      "ACF-0903": { previas: [], siguientes: ["TIE-1018"] }, // Álgebra Lineal
-      "TIF-1009": { previas: [], siguientes: ["TIF-1021"] }, // Contabilidad
-      "AEF-1052": { previas: [], siguientes: ["TIF-1021"] }, // Probabilidad
+      "ACF-0902": { previas: ["ACF-2301"], siguientes: ["TIE-1018"] },
+      "AEB-1054": { previas: ["AEF-1032"], siguientes: ["TID-1012"] },
+      "TIF-1020": { previas: ["TIF-1019"], siguientes: ["TIF-1021"] },
+      "ACF-0903": { previas: [], siguientes: ["TIE-1018"] },
+      "TIF-1009": { previas: [], siguientes: ["TIF-1021"] },
+      "AEF-1052": { previas: [], siguientes: ["TIF-1021"] },
 
       // 3er Semestre
-      "TIE-1018": { previas: ["ACF-2301", "ACF-0903"], siguientes: ["TID-1004"] }, // Mat. Aplicadas
-      "TID-1012": { previas: ["AEB-1054"], siguientes: ["AEF-1031"] }, // Estructuras
-      "TIF-1021": { previas: ["ACF-0902", "TIF-1020", "TIF-1009", "AEF-1052"], siguientes: ["TIC-1014"] }, // Toma Decisiones
-      "ACD-0908": { previas: [], siguientes: [] }, // Desarrollo Sustentable
-      "TIC-1011": { previas: [], siguientes: ["TID-1008"] }, // Electricidad
-      "TIF-1013": { previas: ["TIP-1017"], siguientes: ["TIC-1002"] }, // Fund. Redes
+      "TIE-1018": { previas: ["ACF-0902", "ACF-0903"], siguientes: ["TID-1004"] },
+      "TID-1012": { previas: ["AEB-1054"], siguientes: ["AEF-1031"] },
+      "TIF-1021": { previas: ["TIF-1020", "TIF-1009", "AEF-1052"], siguientes: [] },
+      "ACD-0908": { previas: [], siguientes: [] },
+      "TIC-1011": { previas: [], siguientes: ["TID-1008"] },
+      "TIF-1013": { previas: ["TIP-1017"], siguientes: ["TID-1012"] },
 
       // 4to Semestre
-      "TID-1004": { previas: ["TIE-1018"], siguientes: ["TIF-1029"] }, // Análisis Señales
-      "AEF-1031": { previas: ["TID-1012"], siguientes: ["AEH-1063"] }, // Fund. BD
-      "AEC-1061": { previas: [], siguientes: ["AED-1062"] }, // Sist Op I
-      "TID-1010": { previas: [], siguientes: ["TIC-1022"] }, // Desarrollo Emprendedores
-      "TID-1008": { previas: ["TIC-1011"], siguientes: ["TIC-1014"] }, // Circuitos
-      "TIC-1002": { previas: ["TIF-1013"], siguientes: ["TIC-1024"] }, // Redes Comp
+      "TID-1004": { previas: ["TIE-1018"], siguientes: ["TIF-1029"] },
+      "AEF-1031": { previas: ["TID-1012"], siguientes: ["AEH-1063"] },
+      "AEC-1061": { previas: [], siguientes: ["AED-1062"] },
+      "TID-1010": { previas: [], siguientes: [] },
+      "TID-1008": { previas: ["TIC-1011"], siguientes: ["TIC-1014"] },
+      "TID-1012": { previas: ["TIF-1013"], siguientes: ["TIC-1024"] }, // Redes Comp
 
       // 5to Semestre
-      "TIF-1029": { previas: ["TID-1004"], siguientes: ["TIC-1028"] }, // Telecom
-      "AEH-1063": { previas: ["AEF-1031"], siguientes: ["TIF-1007"] }, // Taller BD
-      "AED-1062": { previas: ["AEC-1061"], siguientes: [] }, // Sist Op II
-      "TIC-1014": { previas: ["TIF-1021", "TID-1008"], siguientes: ["TIH-1016"] }, // Arq Comp
-      "TIB-1024": { previas: [], siguientes: ["AEB-1055"] }, // Prog II
-      "TIC-1024": { previas: ["TIC-1002"], siguientes: ["TIC-1023"] }, // Redes Emergentes
+      "TIF-1029": { previas: ["TID-1004"], siguientes: ["TIC-1028"] },
+      "AEH-1063": { previas: ["AEF-1031"], siguientes: ["TIF-1007"] },
+      "AED-1062": { previas: ["AEC-1061"], siguientes: [] },
+      "TIC-1014": { previas: ["TID-1008"], siguientes: ["TIH-1016"] },
+      "TIB-1024": { previas: [], siguientes: ["AEB-1055"] },
+      "TIC-1024": { previas: ["TID-1012"], siguientes: ["TIC-1023"] },
 
       // 6to Semestre
-      "TIC-1028": { previas: ["TIF-1029"], siguientes: [] }, // Tec Inalámbricas
-      "TIF-1007": { previas: ["AEH-1063"], siguientes: [] }, // BD Dist
-      "TIH-1016": { previas: ["TIC-1014"], siguientes: ["TIC-1016"] }, // Interacción Humano Comp
-      "TIC-1016": { previas: ["TIH-1016"], siguientes: ["TIF-1028"] }, // Ing Software
-      "TIF-1028": { previas: ["TIC-1016"], siguientes: ["RESIDENCIA"] }, // Taller Ing Software
-      "TIC-1022": { previas: ["TID-1010"], siguientes: ["TIC-1023"] }, // Negocios Elec I
-      "TIC-1023": { previas: ["TIC-1022", "TIC-1024"], siguientes: [] }, // Negocios Elec II
-      "ACA-0909": { previas: [], siguientes: ["ACA-0910"] }, // Taller Inv I
-      "ACA-0910": { previas: ["ACA-0909"], siguientes: ["SERVICIO"] }, // Taller Inv II
+      "TIC-1028": { previas: ["TIF-1029"], siguientes: [] },
+      "TIF-1007": { previas: ["AEH-1063"], siguientes: [] },
+      "TIH-1016": { previas: ["TIC-1014"], siguientes: ["TIC-1016"] },
+      "TIC-1016": { previas: ["TIH-1016"], siguientes: ["TIF-1028"] },
+      "TIF-1028": { previas: ["TIC-1016"], siguientes: [] },
+      "TIC-1022": { previas: [], siguientes: ["TIC-1023"] },
+      "TIC-1023": { previas: ["TIC-1022", "TIC-1024"], siguientes: [] },
+      "ACA-0909": { previas: [], siguientes: ["ACA-0910"] },
+      "ACA-0910": { previas: ["ACA-0909"], siguientes: [] },
 
-      // Especialidad (8vo y 9no)
-      "AZA-2301": { previas: [], siguientes: ["ADD-2302"] }, // Almacenes Datos
-      "ADD-2302": { previas: ["AZA-2301"], siguientes: ["AZA-2303"] }, // Minería Datos
-      "AZA-2303": { previas: ["ADD-2302"], siguientes: ["ADD-2304"] }, // Aprendizaje Máquina
-      "ADD-2304": { previas: ["AZA-2303"], siguientes: ["ADB-2305"] }, // Big Data
-      "ADB-2305": { previas: ["ADD-2304"], siguientes: [] }, // Cómputo Nube
-      "ICV-2201": { previas: [], siguientes: ["ICV-2203"] }, // Sistemas Web
-      "ICV-2202": { previas: [], siguientes: ["ICB-2204"] }, // Cubos OLAP
-      "ICV-2203": { previas: ["ICV-2201"], siguientes: ["ICV-2205"] }, // Fund IoT
-      "ICB-2204": { previas: ["ICV-2202"], siguientes: ["IOT-2206"] }, // Ciberseguridad
-      "ICV-2205": { previas: ["ICV-2203"], siguientes: ["IOT-2206"] }, // Prog Apps IoT
-      "IOT-2206": { previas: ["ICV-2205", "ICB-2204"], siguientes: [] } // IoT Avanzado
+      // Especialidad (8vo y 9no) - Incluyendo AOR-2204
+      "AZA-2301": { previas: [], siguientes: ["ADD-2302"] },
+      "ADD-2302": { previas: ["AZA-2301"], siguientes: ["AZA-2303"] },
+      "AZA-2303": { previas: ["ADD-2302"], siguientes: ["ADD-2304"] },
+      "ADD-2304": { previas: ["AZA-2303"], siguientes: ["ADB-2305"] },
+      "ADB-2305": { previas: ["ADD-2304"], siguientes: [] },
+      "ICV-2201": { previas: [], siguientes: ["ICV-2203"] },
+      "ICV-2202": { previas: [], siguientes: ["AOR-2204", "ICB-2204"] },
+      "ICV-2203": { previas: ["ICV-2201"], siguientes: ["ICV-2205"] },
+      "AOR-2204": { previas: ["ICV-2202"], siguientes: ["IOT-2206"] }, // Ciberseguridad
+      "ICB-2204": { previas: ["ICV-2202"], siguientes: ["IOT-2206"] }, // Alias
+      "ICV-2205": { previas: ["ICV-2203"], siguientes: ["IOT-2206"] },
+      "IOT-2206": { previas: ["ICV-2205", "AOR-2204", "ICB-2204"], siguientes: [] }
     };
 
     function PortafolioITPApp() {
@@ -349,7 +350,7 @@
 
           {/* RETÍCULA INTERACTIVA */}
           {vistaActual === "reticula" && (
-            <section className="max-w-[1600px] mx-auto px-4 py-10">
+            <section className="max-w-[1600px] mx-auto px-4 py-10" onClick={() => setMateriaFoco(null)}>
               <div className="mb-8 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-900/40 p-6 rounded-2xl border border-white/5 backdrop-blur-md">
                 <div>
                   <h2 className="text-2xl font-extrabold text-white tracking-tight">Mapa Curricular</h2>
@@ -396,7 +397,11 @@
                       }
 
                       return (
-                        <div key={m.id} onClick={() => setMateriaFoco(isFoco ? null : m)} className={`${baseClass} ${colorClass}`}>
+                        <div 
+                          key={m.id} 
+                          onClick={(e) => { e.stopPropagation(); setMateriaFoco(isFoco ? null : m); }} 
+                          className={`${baseClass} ${colorClass}`}
+                        >
                           {/* Línea superior de color según estado */}
                           {isFoco && <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-400 to-cyan-400"></div>}
                           {isPrevia && <div className="absolute top-0 left-0 w-full h-1.5 bg-orange-500"></div>}
@@ -419,21 +424,6 @@
                 ))}
               </div>
 
-              {/* Panel flotante cuando hay una materia enfocada */}
-              {materiaFoco && (
-                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 glass-panel px-8 py-5 rounded-2xl flex items-center gap-6 shadow-[0_10px_40px_rgba(0,0,0,0.5)] border-blue-500/30 animate-in slide-in-from-bottom-5 fade-in duration-300 z-50">
-                  <div>
-                    <h4 className="text-white font-bold text-lg">{materiaFoco.nombre}</h4>
-                    <p className="text-xs text-slate-400">Presiona el botón para subir evidencia de esta materia.</p>
-                  </div>
-                  <div className="flex gap-3 border-l border-white/10 pl-6">
-                    <button onClick={() => { setMateriaSeleccionada(materiaFoco.id); setVistaActual(usuarioActivo ? "subir" : "auth"); setMateriaFoco(null); }} className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-lg transition-all transform hover:scale-105">
-                      {usuarioActivo ? "+ Subir Evidencia" : "Iniciar Sesión"}
-                    </button>
-                    <button onClick={() => setMateriaFoco(null)} className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all font-bold text-sm">✕</button>
-                  </div>
-                </div>
-              )}
             </section>
           )}
 
