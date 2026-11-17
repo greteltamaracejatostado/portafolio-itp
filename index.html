@@ -29,12 +29,12 @@
     
     .glass-panel {
       background: rgba(15, 23, 42, 0.6);
-      backdrop-filter: blur(12px);
+      backdrop-filter: blur(16px);
       border: 1px solid rgba(255, 255, 255, 0.08);
     }
     
     .reticula-box {
-      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
     }
   </style>
 </head>
@@ -49,73 +49,71 @@
     const { useState, useEffect, useRef } = React;
     const API_BASE = window.location.origin.includes("http") ? window.location.origin : "http://localhost:8000";
 
-    // MAPEO COMPLETO Y EXACTO BASADO EN EL PDF OFICIAL
+    // MAPA COMPLETO Y CORREGIDO BASADO EN EL PDF OFICIAL Y TEXT FILE
     const RETICULA_DEPENDENCIAS = {
       // 1er Semestre
-      "ACF-2301": { previas: [], siguientes: ["ACF-0902", "TIE-1018"] },
-      "AEF-1032": { previas: [], siguientes: ["AEB-1054"] },
-      "TIF-1019": { previas: [], siguientes: ["TIF-1020"] },
-      "TIP-1017": { previas: [], siguientes: ["TIF-1013"] },
-      "ACH-2307": { previas: [], siguientes: [] },
-      "ACC-0906": { previas: [], siguientes: [] },
+      "ACF-2301": { previas: [], siguientes: ["ACF-0902", "TIE-1018"] }, // Cálculo Diferencial
+      "AEF-1032": { previas: [], siguientes: ["AEB-1054"] }, // Fund. Programación
+      "TIF-1019": { previas: [], siguientes: ["TIF-1020"] }, // Mat. Discretas I
+      "TIP-1017": { previas: [], siguientes: ["TIF-1013"] }, // Intro TICs
+      "ACH-2307": { previas: [], siguientes: [] }, // Taller Ética
+      "ACC-0906": { previas: [], siguientes: [] }, // Fund. Investigación
 
       // 2do Semestre
-      "ACF-0902": { previas: ["ACF-2301"], siguientes: ["TIF-1021", "TID-1012"] },
-      "AEB-1054": { previas: ["AEF-1032"], siguientes: ["TID-1012"] },
-      "TIF-1020": { previas: ["TIF-1019"], siguientes: ["TIF-1021"] },
-      "ACF-0903": { previas: [], siguientes: ["TIE-1018"] },
-      "TIF-1009": { previas: [], siguientes: ["TID-1010"] },
-      "AEF-1052": { previas: [], siguientes: ["TIF-1021"] },
+      "ACF-0902": { previas: ["ACF-2301"], siguientes: ["TIF-1021"] }, // Cálculo Integral
+      "AEB-1054": { previas: ["AEF-1032"], siguientes: ["TID-1012"] }, // POO
+      "TIF-1020": { previas: ["TIF-1019"], siguientes: ["TIF-1021"] }, // Mat. Discretas II
+      "ACF-0903": { previas: [], siguientes: ["TIE-1018"] }, // Álgebra Lineal
+      "TIF-1009": { previas: [], siguientes: ["TIF-1021"] }, // Contabilidad
+      "AEF-1052": { previas: [], siguientes: ["TIF-1021"] }, // Probabilidad
 
       // 3er Semestre
-      "TIE-1018": { previas: ["ACF-2301", "ACF-0903"], siguientes: ["TID-1004"] },
-      "TID-1012": { previas: ["ACF-0902", "AEB-1054"], siguientes: ["AEF-1031", "TIC-1014"] },
-      "TIF-1021": { previas: ["ACF-0902", "TIF-1020", "AEF-1052"], siguientes: ["TIC-1014"] },
-      "ACD-0908": { previas: [], siguientes: [] },
-      "TIC-1011": { previas: [], siguientes: ["TIF-1013", "TID-1008"] },
-      "TIF-1013": { previas: ["TIP-1017", "TIC-1011"], siguientes: ["TIC-1002"] },
+      "TIE-1018": { previas: ["ACF-2301", "ACF-0903"], siguientes: ["TID-1004"] }, // Mat. Aplicadas
+      "TID-1012": { previas: ["AEB-1054"], siguientes: ["AEF-1031"] }, // Estructuras
+      "TIF-1021": { previas: ["ACF-0902", "TIF-1020", "TIF-1009", "AEF-1052"], siguientes: ["TIC-1014"] }, // Toma Decisiones
+      "ACD-0908": { previas: [], siguientes: [] }, // Desarrollo Sustentable
+      "TIC-1011": { previas: [], siguientes: ["TID-1008"] }, // Electricidad
+      "TIF-1013": { previas: ["TIP-1017"], siguientes: ["TIC-1002"] }, // Fund. Redes
 
       // 4to Semestre
-      "TID-1004": { previas: ["TIE-1018"], siguientes: ["TIF-1029"] },
-      "AEF-1031": { previas: ["TID-1012"], siguientes: ["AEH-1063"] },
-      "AEC-1061": { previas: [], siguientes: ["AED-1062"] },
-      "TID-1010": { previas: ["TIF-1009"], siguientes: ["TIC-1022"] },
-      "TID-1008": { previas: ["TIC-1011"], siguientes: ["TIF-1029", "TIC-1005"] },
-      "TIC-1002": { previas: ["TIF-1013"], siguientes: ["TIF-1005"] },
+      "TID-1004": { previas: ["TIE-1018"], siguientes: ["TIF-1029"] }, // Análisis Señales
+      "AEF-1031": { previas: ["TID-1012"], siguientes: ["AEH-1063"] }, // Fund. BD
+      "AEC-1061": { previas: [], siguientes: ["AED-1062"] }, // Sist Op I
+      "TID-1010": { previas: [], siguientes: ["TIC-1022"] }, // Desarrollo Emprendedores
+      "TID-1008": { previas: ["TIC-1011"], siguientes: ["TIC-1014"] }, // Circuitos
+      "TIC-1002": { previas: ["TIF-1013"], siguientes: ["TIC-1024"] }, // Redes Comp
 
       // 5to Semestre
-      "TIF-1029": { previas: ["TID-1004", "TID-1008"], siguientes: ["TIC-1028"] },
-      "AEH-1063": { previas: ["AEF-1031"], siguientes: ["TIF-1007"] },
-      "AED-1062": { previas: ["AEC-1061"], siguientes: [] },
-      "TIC-1014": { previas: ["TID-1012", "TIF-1021"], siguientes: ["TIC-1007"] },
-      "TIC-1005": { previas: ["TID-1008"], siguientes: ["TIH-1016"] },
-      "TIF-1005": { previas: ["TIC-1002"], siguientes: [] },
-      "TIB-1024": { previas: [], siguientes: ["AEB-1055"] },
+      "TIF-1029": { previas: ["TID-1004"], siguientes: ["TIC-1028"] }, // Telecom
+      "AEH-1063": { previas: ["AEF-1031"], siguientes: ["TIF-1007"] }, // Taller BD
+      "AED-1062": { previas: ["AEC-1061"], siguientes: [] }, // Sist Op II
+      "TIC-1014": { previas: ["TIF-1021", "TID-1008"], siguientes: ["TIH-1016"] }, // Arq Comp
+      "TIB-1024": { previas: [], siguientes: ["AEB-1055"] }, // Prog II
+      "TIC-1024": { previas: ["TIC-1002"], siguientes: ["TIC-1023"] }, // Redes Emergentes
 
       // 6to Semestre
-      "TIC-1028": { previas: ["TIF-1029"], siguientes: ["TIC-1023"] },
-      "TIF-1007": { previas: ["AEH-1063"], siguientes: [] },
-      "TIC-1007": { previas: ["TIC-1014", "TIH-1016"], siguientes: ["TIC-1006"] },
-      "TIH-1016": { previas: ["TIC-1005"], siguientes: ["TIC-1007"] },
-      "TIC-1006": { previas: ["TIC-1007"], siguientes: ["TIC-1015"] },
-      "AEB-1055": { previas: ["TIB-1024"], siguientes: [] },
-      "ACA-0909": { previas: [], siguientes: ["ACA-0910"] },
+      "TIC-1028": { previas: ["TIF-1029"], siguientes: [] }, // Tec Inalámbricas
+      "TIF-1007": { previas: ["AEH-1063"], siguientes: [] }, // BD Dist
+      "TIH-1016": { previas: ["TIC-1014"], siguientes: ["TIC-1016"] }, // Interacción Humano Comp
+      "TIC-1016": { previas: ["TIH-1016"], siguientes: ["TIF-1028"] }, // Ing Software
+      "TIF-1028": { previas: ["TIC-1016"], siguientes: ["RESIDENCIA"] }, // Taller Ing Software
+      "TIC-1022": { previas: ["TID-1010"], siguientes: ["TIC-1023"] }, // Negocios Elec I
+      "TIC-1023": { previas: ["TIC-1022", "TIC-1024"], siguientes: [] }, // Negocios Elec II
+      "ACA-0909": { previas: [], siguientes: ["ACA-0910"] }, // Taller Inv I
+      "ACA-0910": { previas: ["ACA-0909"], siguientes: ["SERVICIO"] }, // Taller Inv II
 
-      // 7mo Semestre
-      "TIC-1022": { previas: ["TID-1010"], siguientes: ["TIC-1023"] },
-      "TIC-1023": { previas: ["TIC-1022", "TIC-1028"], siguientes: [] },
-      "ACA-0910": { previas: ["ACA-0909"], siguientes: [] },
-      "TIC-1015": { previas: ["TIC-1006"], siguientes: [] },
-
-      // 8vo Semestre (Especialidad - Bloque Azul)
-      "ICV-2201": { previas: [], siguientes: ["ICV-2203"] },
-      "ICV-2202": { previas: [], siguientes: ["ICB-2204"] },
-      "ICV-2203": { previas: ["ICV-2201"], siguientes: ["ICV-2205"] },
-      "ICB-2204": { previas: ["ICV-2202"], siguientes: [] },
-      "ICV-2205": { previas: ["ICV-2203"], siguientes: ["IOT-2206"] },
-
-      // 9no Semestre (Especialidad - Bloque Azul)
-      "IOT-2206": { previas: ["ICV-2205"], siguientes: [] }
+      // Especialidad (8vo y 9no)
+      "AZA-2301": { previas: [], siguientes: ["ADD-2302"] }, // Almacenes Datos
+      "ADD-2302": { previas: ["AZA-2301"], siguientes: ["AZA-2303"] }, // Minería Datos
+      "AZA-2303": { previas: ["ADD-2302"], siguientes: ["ADD-2304"] }, // Aprendizaje Máquina
+      "ADD-2304": { previas: ["AZA-2303"], siguientes: ["ADB-2305"] }, // Big Data
+      "ADB-2305": { previas: ["ADD-2304"], siguientes: [] }, // Cómputo Nube
+      "ICV-2201": { previas: [], siguientes: ["ICV-2203"] }, // Sistemas Web
+      "ICV-2202": { previas: [], siguientes: ["ICB-2204"] }, // Cubos OLAP
+      "ICV-2203": { previas: ["ICV-2201"], siguientes: ["ICV-2205"] }, // Fund IoT
+      "ICB-2204": { previas: ["ICV-2202"], siguientes: ["IOT-2206"] }, // Ciberseguridad
+      "ICV-2205": { previas: ["ICV-2203"], siguientes: ["IOT-2206"] }, // Prog Apps IoT
+      "IOT-2206": { previas: ["ICV-2205", "ICB-2204"], siguientes: [] } // IoT Avanzado
     };
 
     function PortafolioITPApp() {
@@ -133,11 +131,10 @@
       const [correoReg, setCorreoReg] = useState("");
       const [passwordReg, setPasswordReg] = useState("");
       const [fotoReg, setFotoReg] = useState(null);
-      const [estadoCorreoMX, setEstadoCorreoMX] = useState(null);
-      const [correoEnProceso, setCorreoEnProceso] = useState("");
-      const [digitosOTP, setDigitosOTP] = useState(["", "", "", "", "", ""]);
       const [errorAuth, setErrorAuth] = useState(null);
       const [procesandoAuth, setProcesandoAuth] = useState(false);
+      const [correoEnProceso, setCorreoEnProceso] = useState("");
+      const [digitosOTP, setDigitosOTP] = useState(["", "", "", "", "", ""]);
       const inputsRef = useRef([]);
 
       // Evidencias States
@@ -155,7 +152,7 @@
       const [archivoEnVisor, setArchivoEnVisor] = useState(null);
       const [textoCodigoVisor, setTextoCodigoVisor] = useState("");
       
-      // Estado para la Retícula Interactiva
+      // Retícula State
       const [materiaFoco, setMateriaFoco] = useState(null);
 
       const cargarDatosUsuario = async (userObj = usuarioActivo) => {
@@ -177,6 +174,12 @@
       };
 
       useEffect(() => { cargarDatosUsuario(); }, [usuarioActivo]);
+
+      const cambiarDigitoOTP = (index, valor) => {
+        const soloNumero = valor.replace(/[^0-9]/g, "").slice(-1);
+        const nuevos = [...digitosOTP]; nuevos[index] = soloNumero; setDigitosOTP(nuevos);
+        if (soloNumero && index < 5 && inputsRef.current[index + 1]) inputsRef.current[index + 1].focus();
+      };
 
       const manejarRegistro = async (e) => {
         e.preventDefault(); setErrorAuth(null); setProcesandoAuth(true);
@@ -295,7 +298,7 @@
             </main>
           )}
 
-          {/* AUTH (FORMULARIOS) */}
+          {/* AUTH */}
           {vistaActual === "auth" && (
             <section className="max-w-md mx-auto px-6 py-16">
               <div className="glass-panel p-8 rounded-3xl shadow-2xl">
